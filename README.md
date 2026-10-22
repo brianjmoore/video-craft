@@ -51,8 +51,10 @@ Desktop: click to capture the mouse. **WASD** to move, **Space** to jump,
 you dug, **F** to fly (Space up, Shift down), **L** for the headlamp, **Esc**
 for the menu.
 
-Touch: drag on the left side to move. Drag on the right side to look and tap
-it to dig, or to place in **Place** mode.
+Touch: drag on the left side to move. Drag on the right side to look. Tap it
+to dig, or hold still to keep digging. The **Dig** button switches to
+**Place**. On phones the game goes fullscreen where the browser allows it and
+keeps the screen awake.
 
 You step up one-block ledges automatically. The bottom layer is unbreakable
 bedrock.
@@ -80,4 +82,15 @@ are counted when the world is built.
 - Caves are counted once per build. Digging into one discovers it, but
   pockets you make or seal yourself don't count.
 - Edits are lost when you change terrain settings or reload.
-- Supported video formats depend on the browser.
+- Supported video formats depend on the browser. iPhones handle H.264 and
+  HEVC from the camera roll.
+
+## Mobile
+
+- In game, the view is only redrawn when something changes, to save battery.
+- If frames are slow, the render resolution drops (never below one pixel per
+  CSS pixel) and recovers when things speed up.
+- If the browser drops the GPU context (common when you switch apps), the
+  world is rebuilt from memory and your digging is kept.
+- In the preview, the world is framed in the area the controls panel doesn't
+  cover.

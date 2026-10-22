@@ -69,7 +69,7 @@
   #cross::before,#cross::after { content:""; position:absolute; background:#fff; mix-blend-mode:difference; }
   #cross::before { left:8px; top:0; width:2px; height:18px; }
   #cross::after { top:8px; left:0; height:2px; width:18px; }
-  #help { position:fixed; left:10px; bottom:calc(env(safe-area-inset-bottom) + 10px); color:var(--dim); font-size:12px;
+  #help { position:fixed; left:10px; right:70px; bottom:calc(env(safe-area-inset-bottom) + 10px); color:var(--dim); font-size:12px;
     pointer-events:none; text-shadow:0 1px 2px #000; }
   #swatch { position:fixed; right:12px; bottom:calc(env(safe-area-inset-bottom) + 12px); width:44px; height:44px;
     border:2px solid #fff; border-radius:6px; pointer-events:none; box-shadow:0 2px 6px #000; }
@@ -84,6 +84,8 @@
   #pause h2 { margin:0; }
   #touch { position:fixed; inset:0; pointer-events:none; }
   #touch button { pointer-events:auto; position:fixed; min-width:64px; min-height:56px; background:rgba(38,42,51,.7); }
+  #touch button.on { background:var(--acc); color:#1a1405; border-color:var(--acc); }
+  body.game { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
   #joy { position:fixed; width:110px; height:110px; margin:-55px 0 0 -55px; border:2px solid rgba(255,255,255,.3);
     border-radius:50%; display:none; pointer-events:none; }
   #joy div { position:absolute; left:50%; top:50%; width:44px; height:44px; margin:-22px 0 0 -22px; border-radius:50%; background:rgba(255,255,255,.35); }
@@ -595,13 +597,26 @@ const P = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: -0.2, onGround
   held: [200, 200, 200], placeMode: false };
 const EYE = 1.55, HALF = 0.3, TALL = 1.75;
 
+// In game, the render scale drops on slow devices (see tick) but never below one pixel per CSS pixel.
+let renderScale = 1;
 function resize() {
-  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const dpr = Math.min(devicePixelRatio || 1, 2) * (mode === 'game' ? renderScale : 1);
   const w = Math.round(canvas.clientWidth * dpr), h = Math.round(canvas.clientHeight * dpr);
   if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
 }
 function center() { return [W.X / 2, W.Y / 2, W.Z / 2]; }
-function fitDistance() { return Math.max(W.X, W.Y, W.Z) * 1.9; }
+// NDC offset of the visible area's centre when the controls panel covers part of the screen.
+function viewShift() {
+  const pn = $('panel');
+  if (mode !== 'preview' || pn.classList.contains('hidden')) return [0, 0];
+  const r = pn.getBoundingClientRect();
+  if (r.width < innerWidth * 0.9) return [-Math.min(0.6, r.width / innerWidth), 0];
+  return [0, Math.min(0.7, Math.max(0, (innerHeight - r.top) / innerHeight))];
+}
+function fitDistance() {
+  const [sx, sy] = viewShift();
+  return Math.max(W.X, W.Y, W.Z) * 1.9 / Math.max(0.45, 1 - Math.max(-sx, sy));
+}
 function orbitEye() {
   const c = center();
   return [c[0] + orbit.dist * Math.cos(orbit.pitch) * Math.sin(orbit.yaw), c[1] + orbit.dist * Math.sin(orbit.pitch),
@@ -614,9 +629,12 @@ function camera() {
     return { eye, fwd, fov, aspect, vp: mul(perspective(fov, aspect, 0.05, 600), lookDir(eye, fwd)) };
   }
   const eye = orbitEye(), fwd = norm(center().map((c, i) => c - eye[i])), fov = 45 * Math.PI / 180;
-  return { eye, fwd, fov, aspect, vp: mul(perspective(fov, aspect, 1, 3000), lookDir(eye, fwd)) };
+  const shift = viewShift(), proj = perspective(fov, aspect, 1, 3000);
+  proj[8] = -shift[0]; proj[9] = -shift[1];
+  return { eye, fwd, fov, aspect, shift, vp: mul(proj, lookDir(eye, fwd)) };
 }
 function rayThrough(cam, px, py) {     // px, py in [-1, 1]
+  if (cam.shift) { px -= cam.shift[0]; py -= cam.shift[1]; }
   const up0 = Math.abs(cam.fwd[1]) > 0.999 ? [0, 0, -1] : [0, 1, 0];
   const r = norm(cross(cam.fwd, up0)), u = cross(r, cam.fwd), t = Math.tan(cam.fov / 2);
   return norm([0, 1, 2].map(i => cam.fwd[i] + r[i] * px * t * cam.aspect + u[i] * py * t));
@@ -844,6 +862,7 @@ for (const seg of document.querySelectorAll('.seg')) seg.addEventListener('click
 $('fill').addEventListener('input', () => { settings.fill = +$('fill').value; syncSegs(); });
 $('fill').addEventListener('change', () => regenerate(false));
 $('togglePanel').onclick = () => $('panel').classList.toggle('hidden');
+$('panel').addEventListener('transitionend', e => { if (e.target === $('panel') && W) { orbit.dist = fitDistance(); requestRender(); } });
 $('xray').onclick = () => { $('xray').classList.toggle('on'); requestRender(); };
 $('resetView').onclick = () => { orbit.yaw = 0.7; orbit.pitch = 0.55; orbit.dist = fitDistance(); requestRender(); };
 
@@ -860,23 +879,29 @@ function updateCutLabel() {
   drawFrameThumb($('sliceThumb'), f, null);
   $('sliceThumb').title = `Frame ${n} · ${frameTime(f).toFixed(2)} s`;
 }
+let cutPending = false;
 $('cut').addEventListener('input', () => {
   if (!W) return;
+  updateCutLabel();
+  if (!cutPending) { cutPending = true; requestAnimationFrame(applyCut); }
+});
+function applyCut() {
+  cutPending = false;
   const old = W.clipPos, next = clipCoordFor(+$('cut').value);
   if (old === next) return;
   W.clipPos = next;
   const lo = Math.min(old, next) - 1, hi = Math.min(Math.max(old, next), W.up ? W.Y : W.Z);
   if (W.up) remeshBox(0, lo, 0, W.X - 1, hi, W.Z - 1); else remeshBox(0, 0, lo, W.X - 1, W.Y - 1, hi);
-  updateCutLabel();
   requestRender();
-});
+}
 
-const thumbImg = { canvas: document.createElement('canvas'), f: -1 };
+const thumbImg = { f: -1 };
 function drawFrameThumb(cv, f, dot) {
   const { w, h } = src;
   if (cv.width !== w) { cv.width = w; cv.height = h; }
   const ctx = cv.getContext('2d');
-  ctx.putImageData(new ImageData(new Uint8ClampedArray(src.frames[f]), w, h), 0, 0);
+  src.imgs ||= [];
+  ctx.putImageData(src.imgs[f] ||= new ImageData(src.frames[f], w, h), 0, 0);
   if (dot) {
     ctx.fillStyle = '#ff3b3b'; ctx.fillRect(dot[0] - 1, dot[1] - 1, 3, 3);
     ctx.fillStyle = '#fff'; ctx.fillRect(dot[0], dot[1], 1, 1);
@@ -941,8 +966,14 @@ const keys = {};
 const joy = { id: null, x: 0, y: 0, ox: 0, oy: 0 };
 let look = null, lastT = 0, senseT = 0, toastTimer = 0, actQueued = null;
 
+let wakeLock = null;
 function enterGame() {
   if (!W) return;
+  if (coarse) {
+    document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => {});
+    navigator.wakeLock?.request('screen').then(l => { wakeLock = l; }).catch(() => {});
+  }
+  worldDirty = true;
   if (W.clipPos !== Infinity) { $('cut').value = src.d; W.clipPos = Infinity; remeshAll(); updateCutLabel(); }
   mode = 'game';
   document.body.className = 'game';
@@ -952,7 +983,7 @@ function enterGame() {
   P.yaw = Math.atan2(-(W.X / 2 - P.x), -(W.Z / 2 - P.z)) || 0;
   P.pitch = -0.15;
   $('touch').hidden = !coarse;
-  $('help').textContent = coarse ? 'Left side: move · Right side: drag to look, tap to dig' :
+  $('help').textContent = coarse ? 'Left side: move · Right side: drag to look, tap to dig, hold to keep digging' :
     'WASD move · Space jump · Click dig · Right-click place · F fly · L lamp · Esc menu';
   $('swatch').style.background = `rgb(${P.held})`;
   if (coarse) $('pause').hidden = true; else { $('pause').hidden = false; $('resume').textContent = 'Click to explore'; }
@@ -962,6 +993,9 @@ function enterGame() {
 }
 function exitGame() {
   if (document.pointerLockElement) document.exitPointerLock();
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  wakeLock?.release().catch(() => {}); wakeLock = null;
+  resetInput();
   mode = 'preview';
   document.body.className = 'preview';
   W.spawn = { x: P.x, y: Math.floor(P.y), z: P.z };
@@ -1033,18 +1067,39 @@ function act(place) {
   }
 }
 function editedAt(x, y, z) {
-  if (updateTop(x, z)) remeshBox(x - 1, 0, z - 1, x + 1, W.Y - 1, z + 1);   // sky light changes down the column
-  else remeshBox(x - 1, y - 1, z - 1, x + 1, y + 1, z + 1);
+  const t0 = W.top[x + W.X * z];
+  let y0 = y - 1, y1 = y + 1;
+  if (updateTop(x, z)) {     // sky light fades over 7 blocks below the column top, so relight that span
+    const t1 = W.top[x + W.X * z];
+    y0 = Math.min(y0, Math.min(t0, t1) - 8); y1 = Math.max(y1, Math.max(t0, t1) + 1);
+  }
+  remeshBox(x - 1, y0, z - 1, x + 1, y1, z + 1);
+  worldDirty = true;
+  if (coarse) navigator.vibrate?.(8);
 }
 
+let worldDirty = true, lastSig = '', slowFor = 0, fastFor = 0, renderedLast = false;
 function tick(now) {
   if (mode !== 'game') return;
-  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+  const rawDt = (now - lastT) / 1000, dt = Math.min(0.05, rawDt); lastT = now;
   const playing = coarse || document.pointerLockElement === canvas;
   if (playing) update(dt);
-  render();
+  // Touch: holding still on the look side keeps digging (or placing).
+  if (look && !look.moved && now - look.t > 380 && now >= (look.next || 0)) { actQueued = P.placeMode; look.held = true; look.next = now + 230; }
+  // Only redraw when the view or the world changed; saves battery while standing still.
+  const sig = [P.x, P.y + P.step, P.z, P.yaw, P.pitch].map(v => v.toFixed(3)) + P.lamp + P.placeMode + canvas.clientWidth + 'x' + canvas.clientHeight;
+  if (sig !== lastSig || worldDirty) {
+    if (renderedLast) adaptResolution(rawDt);
+    render(); lastSig = sig; worldDirty = false; renderedLast = true;
+  } else renderedLast = false;
   updateHud(false);
   requestAnimationFrame(tick);
+}
+function adaptResolution(dt) {
+  const minScale = 1 / Math.min(devicePixelRatio || 1, 2);
+  if (dt > 1 / 40) { slowFor += dt; fastFor = 0; } else if (dt < 1 / 55) { fastFor += dt; slowFor = 0; }
+  if (slowFor > 1.5 && renderScale > minScale) { renderScale = Math.max(minScale, renderScale * 0.8); slowFor = 0; }
+  if (fastFor > 6 && renderScale < 1) { renderScale = Math.min(1, renderScale * 1.15); fastFor = 0; }
 }
 function update(dt) {
   if (actQueued !== null) { act(actQueued); actQueued = null; }
@@ -1162,17 +1217,25 @@ canvas.addEventListener('touchmove', e => {
       joy.x = dx; joy.y = dy;
       $('joy').firstElementChild.style.transform = `translate(${dx * 33}px,${dy * 33}px)`;
     } else if (look && t.identifier === look.id) {
+      if (Math.hypot(t.clientX - look.sx, t.clientY - look.sy) > 10) look.moved = true;
       P.yaw -= (t.clientX - look.x) * 0.006;
       P.pitch = Math.max(-1.55, Math.min(1.55, P.pitch - (t.clientY - look.y) * 0.006));
       look.x = t.clientX; look.y = t.clientY;
     }
   }
 }, { passive: false });
+function resetInput() {
+  for (const k in keys) keys[k] = false;
+  touchHeld.jump = touchHeld.down = false;
+  joy.id = null; joy.x = joy.y = 0; $('joy').style.display = 'none';
+  look = null;
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) resetInput(); else worldDirty = true; });
 const touchEnd = e => {
   for (const t of e.changedTouches) {
     if (t.identifier === joy.id) { joy.id = null; joy.x = joy.y = 0; $('joy').style.display = 'none'; }
     else if (look && t.identifier === look.id) {
-      if (Math.hypot(t.clientX - look.sx, t.clientY - look.sy) < 10 && performance.now() - look.t < 350) actQueued = P.placeMode;
+      if (!look.moved && !look.held && performance.now() - look.t < 380) actQueued = P.placeMode;
       look = null;
     }
   }
@@ -1194,6 +1257,13 @@ $('tMenu').onclick = exitGame;
 // ---------------------------------------------------------------- start
 addEventListener('resize', () => { if (mode === 'preview') requestRender(); });
 canvas.addEventListener('webglcontextlost', e => e.preventDefault());
+canvas.addEventListener('webglcontextrestored', () => {
+  chunks = []; xrayVAO = null; xrayCount = 0;
+  initGL();
+  if (W) { remeshAll(); buildXray(); }
+  worldDirty = true;
+  requestRender();
+});
 syncSegs();
 if (initGL()) { $('hint').textContent = 'Building demo world…'; loadDemo(); }
 </script>
