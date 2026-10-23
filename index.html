@@ -4,169 +4,348 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0f1014">
+<meta name="theme-color" content="#1e150e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tiny5&display=swap">
 <title>Video Craft</title>
 <style>
-  :root { --bg:#0f1014; --panel:rgba(22,24,30,.92); --fg:#e6e8ee; --dim:#9aa0ad; --acc:#ffbf3c; --line:#2c303a; }
+  :root { --stone:#6f6f6f; --stone-hi:#a9a9a9; --stone-lo:#4b4b4b; --txt:#e0e0e0; --shade:#383838; --gray:#a8a8a8;
+    --green:#3c8527; --green-hi:#6cc349; --green-lo:#1f5214; --yellow:#ffff55; --xp:#80ff20;
+    --slot:min(44px, calc((100vw - 24px) / 9)); --safe-t:env(safe-area-inset-top); --safe-b:env(safe-area-inset-bottom); }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
-    font:14px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; overflow:hidden; overscroll-behavior:none; }
+  [hidden] { display:none !important; }
+  html { height:100%; background:#1e150e; }
+  body { margin:0; height:100%; color:var(--txt); font:17px/1.3 "Tiny5",ui-monospace,Menlo,Consolas,monospace;
+    overflow:hidden; overscroll-behavior:none; text-shadow:2px 2px 0 var(--shade);
+    user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
   #gl { position:fixed; inset:0; width:100%; height:100%; touch-action:none; display:block; }
-  button,.btn { font:inherit; color:var(--fg); background:#262a33; border:1px solid var(--line); border-radius:8px;
-    padding:8px 12px; min-height:38px; cursor:pointer; user-select:none; -webkit-user-select:none; }
-  button:active,.btn:active { background:#323743; }
-  button.primary { background:var(--acc); color:#1a1405; border-color:var(--acc); font-weight:600; }
-  button.on { background:var(--acc); color:#1a1405; border-color:var(--acc); }
-  button:disabled { opacity:.45; }
-  .preview-only, .game-only { display:none !important; }
-  body.preview .preview-only { display:flex !important; }
-  body.game .game-only { display:block !important; }
-  #top { position:fixed; z-index:2; top:0; left:0; right:0; gap:6px; flex-wrap:wrap; align-items:center;
-    padding:calc(env(safe-area-inset-top) + 8px) 10px 8px; pointer-events:none; }
-  #top > * { pointer-events:auto; }
-  #top .spacer { flex:1; pointer-events:none; }
-  #status { position:fixed; left:10px; top:calc(env(safe-area-inset-top) + 56px); color:var(--dim); font-size:12px;
-    pointer-events:none; text-shadow:0 1px 2px #000; max-width:70vw; }
-  #panel { position:fixed; left:0; right:0; bottom:0; max-height:48vh; overflow-y:auto; -webkit-overflow-scrolling:touch;
-    background:var(--panel); border-top:1px solid var(--line); padding:6px 12px calc(env(safe-area-inset-bottom) + 12px);
-    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); transition:transform .2s; flex-direction:column; }
-  #panel.hidden { transform:translateY(100%); }
-  @media (min-width:820px) and (orientation:landscape) {
-    #panel { left:auto; top:0; width:340px; max-height:none; border-top:none; border-left:1px solid var(--line);
-      padding-top:calc(env(safe-area-inset-top) + 56px); }
-    #panel.hidden { transform:translateX(100%); }
-  }
-  section { padding:8px 0; border-bottom:1px solid var(--line); }
-  section:last-child { border-bottom:none; }
-  h3 { margin:4px 0 8px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
-  .ctl { display:grid; grid-template-columns:92px 1fr 58px; align-items:center; gap:8px; margin:4px 0; }
-  .ctl label { color:var(--dim); font-size:13px; }
-  .ctl output { text-align:right; font-variant-numeric:tabular-nums; font-size:12px; color:var(--fg); }
-  input[type=range] { width:100%; height:30px; margin:0; accent-color:var(--acc); }
-  .seg { display:flex; margin:6px 0; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
-  .seg button { flex:1; border:none; border-radius:0; background:transparent; padding:7px 4px; min-height:34px; font-size:13px; }
-  .seg button + button { border-left:1px solid var(--line); }
-  .seg button.on { background:var(--acc); color:#1a1405; font-weight:600; }
-  .segLabel { color:var(--dim); font-size:12px; margin-top:6px; }
-  .row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:6px 0; }
-  .row button { flex:1; }
-  .note { color:var(--dim); font-size:12px; }
-  video#vid { width:100%; max-height:28vh; background:#000; border-radius:6px; }
-  #mem.warn { color:#ff7a6b; }
-  progress { width:100%; height:8px; accent-color:var(--acc); }
-  #sliceThumb { width:100%; image-rendering:pixelated; border-radius:4px; background:#000; display:block; }
-  #hint { position:fixed; left:50%; top:45%; transform:translate(-50%,-50%); color:var(--dim); text-align:center; pointer-events:none; }
+  /* Dirt behind everything; the preview canvas is transparent until a world exists. */
+  #dirt { position:fixed; inset:0; z-index:-1; image-rendering:pixelated;
+    background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)), var(--dirt, none) 0 0/64px 64px, #1e150e; }
+  #veil { position:fixed; inset:0; z-index:3; display:none; background:rgba(0,0,0,.42); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
+  body.s-worlds #veil, body.s-create #veil, body.s-options #veil, body.s-controls #veil, body.s-pause #veil, body.s-album #veil { display:block; }
+  body.s-loading #veil { display:block; backdrop-filter:none; -webkit-backdrop-filter:none; image-rendering:pixelated;
+    background:linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)), var(--dirt, none) 0 0/64px 64px, #1e150e; }
 
-  /* game HUD */
-  #hud { position:fixed; left:10px; top:calc(env(safe-area-inset-top) + 10px); pointer-events:none; text-shadow:0 1px 2px #000;
-    font-size:13px; max-width:60vw; }
-  #hudThumb { width:160px; image-rendering:pixelated; border:1px solid rgba(255,255,255,.35); border-radius:4px; display:block; margin-bottom:4px; }
-  #hud .big { font-weight:600; font-variant-numeric:tabular-nums; }
-  #sense { margin-top:4px; }
-  #senseBar { width:160px; height:5px; background:rgba(255,255,255,.15); border-radius:3px; margin-top:3px; overflow:hidden; }
-  #senseBar div { height:100%; width:0; background:linear-gradient(90deg,#4cc9f0,#ffbf3c,#ff5d5d); }
-  #cross { position:fixed; left:50%; top:50%; width:18px; height:18px; margin:-9px 0 0 -9px; pointer-events:none; }
+  /* Stone buttons: black outline, light top-left bevel, dark bottom-right bevel, shadowed text. */
+  button,.btn { font:inherit; color:var(--txt); background:var(--stone); border:2px solid #000; border-radius:0;
+    box-shadow:inset 2px 2px 0 var(--stone-hi), inset -2px -3px 0 var(--stone-lo); text-shadow:2px 2px 0 var(--shade);
+    padding:6px 12px; min-height:40px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; text-align:center; }
+  @media (hover:hover) { button:hover:not(:disabled),.btn:hover { border-color:#fff; color:#ffffa0; } }
+  button:active,.btn:active { background:#5f5f5f; box-shadow:inset 2px 3px 0 var(--stone-lo), inset -2px -2px 0 #888; }
+  button.primary, button.on { background:var(--green); color:#fff; box-shadow:inset 2px 2px 0 var(--green-hi), inset -2px -3px 0 var(--green-lo); }
+  button.primary:active, button.on:active { background:#346f22; }
+  button:disabled { background:#2c2c2c; color:#8a8a8a; box-shadow:none; text-shadow:none; cursor:default; }
+
+  /* Screens: one is visible at a time, chosen by the body's s-<name> class. */
+  .screen { position:fixed; inset:0; z-index:4; display:none; flex-direction:column; align-items:center;
+    padding:calc(var(--safe-t) + 14px) 14px calc(var(--safe-b) + 14px); }
+  body.s-title #title, body.s-worlds #worlds, body.s-create #create, body.s-edit #edit, body.s-loading #loading,
+  body.s-options #options, body.s-controls #controls, body.s-pause #pause, body.s-album #album { display:flex; }
+  h1 { font-size:19px; font-weight:400; margin:4px 0 12px; color:#fff; text-align:center; }
+  .menu { display:flex; flex-direction:column; gap:8px; width:min(400px, 100%); }
+  .pair { display:flex; gap:8px; }
+  .pair > * { flex:1; min-width:0; }
+  .actions { width:min(620px, 100%); display:flex; flex-direction:column; gap:8px; margin-top:12px; flex:none; }
+  .tip { color:var(--gray); font-size:15px; }
+
+  /* Title */
+  #title { justify-content:flex-start; gap:min(10vh, 72px); padding-top:calc(var(--safe-t) + 13vh); }
+  .logo { position:relative; font-size:clamp(38px, 10vw, 76px); letter-spacing:.06em; text-transform:uppercase; white-space:nowrap;
+    line-height:1; text-shadow:none; image-rendering:pixelated; }
+  .logo::before { content:attr(data-text); position:absolute; left:0; top:0; color:#2e2e2e; -webkit-text-stroke:.07em #111;
+    text-shadow:.04em .04em 0 #222, .08em .08em 0 #151515, .1em .1em 0 #000; }
+  .logo span:first-child { position:relative; color:transparent;
+    background:var(--stonetex, none) 0 0/.42em .42em, #9a9a9a; -webkit-background-clip:text; background-clip:text; }
+  .splash { position:absolute; right:-.4em; bottom:-.35em; font-size:clamp(13px, 2.6vw, 20px); letter-spacing:0; text-transform:none;
+    color:var(--yellow); text-shadow:2px 2px 0 #3f3f15; transform:rotate(-20deg); animation:splash .45s ease-in-out infinite alternate; }
+  @keyframes splash { to { transform:rotate(-20deg) scale(1.1); } }
+  .foot { position:absolute; bottom:calc(var(--safe-b) + 6px); font-size:15px; color:#fff; }
+  .foot.l { left:8px; } .foot.r { right:8px; }
+
+  /* Select World */
+  #worldList { width:100%; flex:1; overflow-y:auto; background:rgba(0,0,0,.45); border-top:2px solid #000; border-bottom:2px solid #000;
+    box-shadow:0 -2px 0 rgba(255,255,255,.2), 0 2px 0 rgba(255,255,255,.2); display:flex; flex-direction:column; align-items:center; gap:4px; padding:6px 8px; }
+  .entry { width:min(460px, 100%); display:flex; gap:10px; padding:4px; border:2px solid transparent; cursor:pointer; }
+  .entry.sel { border-color:#a0a0a0; background:#000; }
+  .entry img { width:64px; height:64px; image-rendering:pixelated; flex:none; }
+  .entry .n { color:#fff; }
+  .entry .d { color:#808080; font-size:15px; text-shadow:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .entry > div { min-width:0; }
+
+  /* Create New World */
+  .pane { width:min(620px, 100%); flex:1; overflow-y:auto; display:none; flex-direction:column; gap:8px; padding:14px 0 4px; }
+  .pane.on { display:flex; }
+  .col { display:flex; flex-direction:column; gap:8px; }
+  /* Scrolling columns: let them scroll rather than squash rows (sliders have no height of their own). */
+  .pane > *, .col > *, #editPanel > * { flex-shrink:0; }
+  .field { display:flex; flex-direction:column; gap:4px; color:var(--gray); }
+  .field input { font:inherit; background:#000; color:var(--txt); border:2px solid #a0a0a0; padding:8px; outline:none; text-shadow:none; user-select:text; }
+  .field input:focus { border-color:#fff; }
+  video#vid { width:100%; max-height:30vh; background:#000; border:2px solid #000; }
+  #mem.warn { color:#ff5555; }
+
+  /* Minecraft slider: a dark button with the label printed on it and a narrow stone handle. */
+  .mslider { position:relative; height:40px; }
+  .mslider input { -webkit-appearance:none; appearance:none; position:absolute; inset:0; width:100%; height:100%; margin:0;
+    background:#2c2c2c; border:2px solid #000; box-shadow:inset 2px 2px 0 #1c1c1c, inset -2px -2px 0 #3e3e3e; cursor:pointer; }
+  @media (hover:hover) { .mslider input:hover { border-color:#fff; } }
+  .mslider input::-webkit-slider-runnable-track { height:100%; background:transparent; }
+  .mslider input::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:36px; background:var(--stone); border:2px solid #000;
+    box-shadow:inset 2px 2px 0 var(--stone-hi), inset -2px -2px 0 var(--stone-lo); }
+  .mslider input::-moz-range-track { height:100%; background:transparent; }
+  .mslider input::-moz-range-thumb { width:12px; height:32px; background:var(--stone); border:2px solid #000; border-radius:0;
+    box-shadow:inset 2px 2px 0 var(--stone-hi), inset -2px -2px 0 var(--stone-lo); }
+  .mslider span { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+
+  /* Edit World: the world stays interactive behind a dark option column. */
+  #edit { padding:0; pointer-events:none; }
+  #edit .head { position:absolute; left:0; top:0; padding:calc(var(--safe-t) + 12px) 14px 0; }
+  #edit .head h1 { text-align:left; margin:0 0 4px; }
+  #editPanel { pointer-events:auto; position:absolute; left:0; right:0; bottom:0; max-height:50vh; overflow-y:auto;
+    background:rgba(0,0,0,.62); border-top:2px solid #000; box-shadow:0 -2px 0 rgba(255,255,255,.2);
+    padding:10px 12px calc(var(--safe-b) + 12px); display:flex; flex-direction:column; gap:8px; }
+  @media (min-width:820px) and (orientation:landscape) {
+    #editPanel { left:auto; top:0; width:360px; max-height:none; border-top:none; border-left:2px solid #000;
+      box-shadow:-2px 0 0 rgba(255,255,255,.2); padding-top:calc(var(--safe-t) + 12px); }
+  }
+  .group { color:#fff; text-align:center; margin-top:4px; }
+  #sliceThumb { width:100%; image-rendering:pixelated; background:#000; display:block; border:2px solid #000; cursor:crosshair; }
+  .swatch { display:inline-block; width:14px; height:14px; border:2px solid #000; vertical-align:-2px; }
+  #editPanel .actions { width:100%; margin-top:4px; }
+
+  /* Loading */
+  #loading { justify-content:center; gap:12px; }
+  #loadMsg { color:var(--gray); }
+  .lbar { width:min(400px, 80vw); height:14px; border:2px solid #fff; padding:2px; }
+  #loadBar { height:100%; width:0; background:var(--xp); }
+
+  /* Options & Controls */
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:min(620px, 100%); }
+  @media (max-width:520px) { .grid2 { grid-template-columns:1fr; } }
+  .keys { width:min(520px, 100%); flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
+  .krow { display:grid; grid-template-columns:1fr 150px; align-items:center; gap:10px; }
+  .krow .btn { pointer-events:none; min-height:36px; }
+  #options > button, #controls > button { width:min(400px, 100%); margin-top:14px; flex:none; }
+
+  /* Frame Album: every frame of the video, as much of it as you've uncovered. */
+  #albumInfo { margin-bottom:10px; text-align:center; }
+  #albumGrid { width:100%; flex:1; overflow-y:auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:10px; align-content:start;
+    background:rgba(0,0,0,.45); border-top:2px solid #000; border-bottom:2px solid #000; padding:10px; }
+  .card { background:#e3d3a5; border:2px solid #000; box-shadow:inset 0 0 0 3px #b59d66; padding:5px; cursor:pointer; text-shadow:none; color:#3f2f14; font-size:15px; }
+  .card canvas { display:block; width:100%; image-rendering:pixelated; }
+  .card.done { background:#fff8d8; box-shadow:inset 0 0 0 3px #e6c200; }
+  @media (hover:hover) { .card:hover { border-color:#fff; } }
+  #albumView { flex:1; min-height:0; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
+  #albumBig { max-width:100%; max-height:calc(100% - 30px); image-rendering:pixelated; border:4px solid #000; box-shadow:0 0 0 6px #b59d66; background:#e3d3a5; }
+  #albumView[hidden] { display:none !important; }
+
+  /* Game Menu */
+  #pause { justify-content:center; }
+  #pause h1 { margin-bottom:24px; }
+
+  /* ---------------- in-game HUD ---------------- */
+  #hud { position:fixed; inset:0; z-index:1; pointer-events:none; display:none; }
+  body.game #hud { display:block; }
+  #cross { position:absolute; left:50%; top:50%; width:18px; height:18px; margin:-9px 0 0 -9px; }
   #cross::before,#cross::after { content:""; position:absolute; background:#fff; mix-blend-mode:difference; }
   #cross::before { left:8px; top:0; width:2px; height:18px; }
   #cross::after { top:8px; left:0; height:2px; width:18px; }
-  #help { position:fixed; left:10px; right:70px; bottom:calc(env(safe-area-inset-bottom) + 10px); color:var(--dim); font-size:12px;
-    pointer-events:none; text-shadow:0 1px 2px #000; }
-  #swatch { position:fixed; right:12px; bottom:calc(env(safe-area-inset-bottom) + 12px); width:44px; height:44px;
-    border:2px solid #fff; border-radius:6px; pointer-events:none; box-shadow:0 2px 6px #000; }
-  #toast { position:fixed; left:50%; top:calc(env(safe-area-inset-top) + 14px); transform:translateX(-50%);
-    background:rgba(20,22,28,.9); border:1px solid var(--acc); border-radius:10px; padding:10px 16px; text-align:center;
-    pointer-events:none; opacity:0; transition:opacity .3s; max-width:80vw; }
-  #toast.show { opacity:1; }
-  #pause { position:fixed; inset:0; background:rgba(10,11,14,.55); display:flex; flex-direction:column; align-items:center;
-    justify-content:center; gap:12px; text-align:center; }
-  #pause[hidden], #touch[hidden] { display:none !important; }
-  body.game #pause:not([hidden]) { display:flex !important; }
-  #pause h2 { margin:0; }
-  #touch { position:fixed; inset:0; pointer-events:none; }
-  #touch button { pointer-events:auto; position:fixed; min-width:64px; min-height:56px; background:rgba(38,42,51,.7); }
-  #touch button.on { background:var(--acc); color:#1a1405; border-color:var(--acc); }
-  body.game { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
-  #joy { position:fixed; width:110px; height:110px; margin:-55px 0 0 -55px; border:2px solid rgba(255,255,255,.3);
-    border-radius:50%; display:none; pointer-events:none; }
-  #joy div { position:absolute; left:50%; top:50%; width:44px; height:44px; margin:-22px 0 0 -22px; border-radius:50%; background:rgba(255,255,255,.35); }
+  /* The current frame, held like a map. */
+  #mapItem { position:absolute; left:10px; top:calc(var(--safe-t) + 10px); }
+  #mapItem .paper { width:fit-content; background:#e3d3a5; border:2px solid #000; box-shadow:inset 0 0 0 4px #b59d66; padding:8px; }
+  #hudThumb { display:block; width:min(150px, 32vw); image-rendering:pixelated; }
+  #hudTime { margin-top:6px; font-size:15px; color:#fff; max-width:44vw; }
+  #debug { position:absolute; left:2px; top:calc(var(--safe-t) + 2px); display:none; font-size:15px; text-shadow:none; }
+  #debug div { display:table; background:rgba(80,80,80,.6); color:#e0e0e0; padding:0 4px; margin-bottom:1px; }
+  body.debug #debug { display:block; } body.debug #mapItem { display:none; }
+  #bottom { position:absolute; left:50%; bottom:calc(var(--safe-b) + 4px); transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; }
+  #actionbar { color:#fff; margin-bottom:6px; min-height:22px; text-align:center; white-space:nowrap; }
+  #xp { position:relative; width:calc(var(--slot) * 9 + 8px); padding-top:20px; margin-bottom:4px; }
+  #xpLevel { position:absolute; left:50%; top:0; transform:translateX(-50%); color:var(--xp); font-size:19px;
+    text-shadow:2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000; }
+  #xpBar { height:10px; background:#1c1c1c; border:2px solid #000; }
+  #xpBar div { height:100%; width:0; background:repeating-linear-gradient(90deg, var(--xp) 0 calc(10% - 2px), #3a7d0e calc(10% - 2px) 10%); transition:width .25s; }
+  #hotbar { display:flex; background:rgba(0,0,0,.4); border:2px solid #000; box-shadow:inset 0 0 0 2px #8b8b8b; padding:2px; pointer-events:auto; }
+  .slot { position:relative; width:var(--slot); height:var(--slot); }
+  .slot + .slot { box-shadow:inset 2px 0 0 #6a6a6a; }
+  .slot.sel::after { content:""; position:absolute; inset:-4px; border:3px solid #e8e8e8; box-shadow:0 0 0 1px #000, inset 0 0 0 1px #000; z-index:1; }
+  .slot svg { position:absolute; left:14%; top:12%; width:72%; height:72%; }
+  .slot .n { position:absolute; right:2px; bottom:-1px; color:#fff; font-size:15px; text-shadow:2px 2px 0 #3f3f3f; z-index:2; }
+  /* First-person hand or held block. */
+  #hand { position:absolute; right:4vw; bottom:-6vh; width:min(36vw, 320px); aspect-ratio:1; }
+  #hand svg { width:100%; height:100%; transform-origin:90% 90%; transform:rotate(-6deg); }
+  #hand.swing svg { animation:swing .28s ease-out; }
+  #hand.mining svg { animation:swing .26s linear infinite; }
+  @keyframes swing { 35% { transform:translate(-16%, -10%) rotate(-32deg); } }
+  #chat { position:absolute; left:4px; bottom:calc(var(--safe-b) + var(--slot) + 90px); width:min(560px, 72vw); display:flex; flex-direction:column; gap:0; }
+  #chat div { background:rgba(0,0,0,.5); padding:1px 5px; color:#fff; font-size:15px; transition:opacity 1s; }
+  #chat div.old { opacity:0; }
+  /* Advancement toast */
+  #toast { position:fixed; right:6px; top:calc(var(--safe-t) + 6px); width:min(330px, 88vw); display:flex; gap:12px; align-items:center;
+    background:#212121; border:2px solid #000; box-shadow:inset 0 0 0 2px #555, inset 0 0 0 4px #000;
+    padding:10px 14px; transform:translateX(calc(100% + 12px)); transition:transform .35s; pointer-events:none; z-index:5; }
+  #toast.show { transform:none; }
+  #toast svg { width:36px; height:36px; flex:none; }
+  #toast .t1 { color:var(--yellow); } #toast.challenge .t1 { color:#ff55ff; }
+  #toast .t2 { color:#fff; }
+  /* Touch controls */
+  #touch { position:fixed; inset:0; pointer-events:none; display:none; }
+  body.game.touch.s-play #touch { display:block; }
+  .tb { position:fixed; pointer-events:auto; min-width:58px; min-height:52px; padding:4px 8px; opacity:.8; font-size:15px; }
+  #tPause { left:50%; transform:translateX(-50%); top:calc(var(--safe-t) + 8px); min-width:48px; min-height:40px; }
+  #tJump { right:14px; bottom:calc(var(--safe-b) + var(--slot) + 92px); min-width:64px; min-height:64px; }
+  #tDown { right:86px; bottom:calc(var(--safe-b) + var(--slot) + 92px); min-width:64px; min-height:64px; display:none; }
+  #tFly { right:14px; top:calc(var(--safe-t) + 8px); }
+  #tLamp { right:80px; top:calc(var(--safe-t) + 8px); }
+  #tAlbum { right:146px; top:calc(var(--safe-t) + 8px); }
+  @media (max-width:500px) { #tAlbum { right:14px; top:calc(var(--safe-t) + 70px); } }
+  #joy { position:fixed; width:110px; height:110px; margin:-55px 0 0 -55px; border:2px solid rgba(255,255,255,.45);
+    background:rgba(0,0,0,.2); display:none; pointer-events:none; }
+  #joy div { position:absolute; left:50%; top:50%; width:44px; height:44px; margin:-22px 0 0 -22px; background:rgba(198,198,198,.55); border:2px solid rgba(0,0,0,.6); }
+  #hint { position:fixed; left:50%; top:45%; transform:translate(-50%,-50%); color:#fff; text-align:center; pointer-events:none; }
 </style>
 </head>
-<body class="preview">
+<body class="s-title">
+<div id="dirt"></div>
 <canvas id="gl"></canvas>
+<div id="veil"></div>
 <div id="hint"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><pattern id="grainPat" width="8" height="8" patternUnits="userSpaceOnUse"></pattern></defs></svg>
 
-<div id="top" class="preview-only">
-  <label class="btn">Open video<input type="file" id="file" accept="video/*" hidden></label>
-  <button id="demo">Demo</button>
-  <span class="spacer"></span>
-  <button id="enter" class="primary" disabled>Enter world ▶</button>
-  <button id="togglePanel">Controls</button>
+<div id="title" class="screen">
+  <div class="logo" data-text="Video Craft"><span>Video Craft</span><span class="splash" id="splash"></span></div>
+  <div class="menu">
+    <button id="tSingle">Singleplayer</button>
+    <button id="tCreate">Create World from Video…</button>
+    <div class="pair"><button data-go="options">Options…</button><button data-go="controls">Controls…</button></div>
+  </div>
+  <div class="foot l">Video Craft 1.1</div>
+  <div class="foot r">Not an official Minecraft product</div>
 </div>
-<div id="status" class="preview-only"></div>
 
-<div id="panel" class="preview-only">
-  <section id="srcSec" hidden>
-    <h3>Source</h3>
-    <video id="vid" controls playsinline muted preload="auto"></video>
-    <div class="row">
-      <button id="setStart">Set start</button>
-      <button id="setEnd">Set end</button>
+<div id="worlds" class="screen">
+  <h1>Select World</h1>
+  <div id="worldList"></div>
+  <div class="actions">
+    <div class="pair"><button id="wPlay">Play Selected World</button><button id="wNew">Create New World</button></div>
+    <div class="pair"><button id="wEdit">Edit World</button><button data-back>Cancel</button></div>
+  </div>
+</div>
+
+<div id="create" class="screen">
+  <h1>Create New World</h1>
+  <div class="pane on">
+    <label class="field">World Name<input id="wname" maxlength="32" value="New World" spellcheck="false"></label>
+    <label class="btn">Choose Video File…<input type="file" id="file" accept="video/*" hidden></label>
+    <div id="srcSec" class="col" hidden>
+      <video id="vid" controls playsinline muted preload="auto"></video>
+      <div class="pair"><button id="setStart">Start Here</button><button id="setEnd">End Here</button></div>
+      <div class="mslider"><input type="range" id="t0" min="0" max="1" step="0.01" value="0"><span id="t0o"></span></div>
+      <div class="mslider"><input type="range" id="t1" min="0" max="1" step="0.01" value="1"><span id="t1o"></span></div>
+      <div class="pair">
+        <div class="mslider"><input type="range" id="frames" min="16" max="160" step="1" value="64"><span id="frameso"></span></div>
+        <div class="mslider"><input type="range" id="width" min="32" max="192" step="8" value="128"><span id="widtho"></span></div>
+      </div>
     </div>
-    <div class="ctl"><label>Start (s)</label><input type="range" id="t0" min="0" max="1" step="0.01" value="0"><output id="t0o"></output></div>
-    <div class="ctl"><label>End (s)</label><input type="range" id="t1" min="0" max="1" step="0.01" value="1"><output id="t1o"></output></div>
-    <div class="ctl"><label>Frames</label><input type="range" id="frames" min="16" max="160" step="1" value="64"><output id="frameso"></output></div>
-    <div class="ctl"><label>Width</label><input type="range" id="width" min="32" max="192" step="8" value="128"><output id="widtho"></output></div>
-    <div id="mem" class="note"></div>
-    <div class="row"><button id="build" class="primary">Build world</button></div>
-    <progress id="prog" max="1" value="0" hidden></progress>
-  </section>
-
-  <section>
-    <h3>Terrain</h3>
-    <div class="segLabel">Rock is</div>
-    <div class="seg" data-key="rock"><button data-v="bright">Bright</button><button data-v="dark">Dark</button><button data-v="still">Still</button></div>
-    <div class="note" id="rockNote"></div>
-    <div class="ctl"><label>Rock fill</label><input type="range" id="fill" min="30" max="90" step="1" value="60"><output id="fillo"></output></div>
-    <div class="segLabel">Smoothing</div>
-    <div class="seg" data-key="smooth"><button data-v="0">Off</button><button data-v="1">Some</button><button data-v="2">Lots</button></div>
-    <div class="segLabel">Time runs</div>
-    <div class="seg" data-key="axis"><button data-v="up">Upward (dig = rewind)</button><button data-v="fwd">Forward</button></div>
-  </section>
-
-  <section>
-    <h3>Preview</h3>
-    <div class="ctl"><label>Cut at frame</label><input type="range" id="cut" min="1" max="2" step="1" value="2"><output id="cuto"></output></div>
-    <canvas id="sliceThumb" width="1" height="1"></canvas>
-    <div class="row"><button id="xray">X-ray caves</button><button id="resetView">Reset view</button></div>
-    <div class="note" id="caveInfo"></div>
-    <div class="note">Tap or click the world to choose where you spawn. Cut away time to find spots inside.</div>
-  </section>
+    <div id="mem" class="tip">Each frame of the clip becomes one layer of blocks. Choose a video to begin.</div>
+    <div class="tip">Next you'll shape the terrain and pick your spawn.</div>
+  </div>
+  <div class="actions pair"><button id="build" disabled>Create New World</button><button data-back>Cancel</button></div>
 </div>
 
-<div id="hud" class="game-only">
-  <canvas id="hudThumb" width="1" height="1"></canvas>
-  <div class="big" id="hudTime"></div>
-  <div id="hudCaves"></div>
-  <div id="sense"><span id="senseText"></span><div id="senseBar"><div></div></div></div>
+<div id="edit" class="screen">
+  <div class="head"><h1 id="editTitle">Edit World</h1><div class="tip" id="status"></div></div>
+  <div id="editPanel">
+    <div class="group">Terrain</div>
+    <button class="cycle" data-key="rock" data-label="Rock" data-opts="bright:Bright,dark:Dark,still:Still,moving:Moving,colorful:Colorful,color:Color"></button>
+    <div class="tip" id="rockNote"></div>
+    <div class="mslider"><input type="range" id="fill" min="10" max="95" step="1" value="60"><span id="fillo"></span></div>
+    <button class="cycle" data-key="smooth" data-num data-label="Smoothing" data-opts="0:Off,1:Some,2:Lots"></button>
+    <button class="cycle" data-key="axis" data-label="Time Runs" data-opts="up:Upward (dig = rewind),fwd:Forward"></button>
+    <button class="cycle" data-key="stretch" data-num data-label="Time Stretch" data-opts="1:1 layer per frame,2:2 layers per frame,3:3 layers per frame"></button>
+    <div class="group">Look Inside</div>
+    <div class="mslider"><input type="range" id="cut" min="1" max="2" step="1" value="2"><span id="cuto"></span></div>
+    <canvas id="sliceThumb" width="1" height="1" title="Tap to make this colour the rock"></canvas>
+    <div class="tip">Tap the picture to make that colour the rock.</div>
+    <div class="group">Goals</div>
+    <button class="cycle" data-key="caves" data-num data-label="Hidden Caves" data-opts="1:ON,0:OFF"></button>
+    <div class="pair"><button id="xray">X-Ray Caves: OFF</button><button id="resetView">Reset View</button></div>
+    <div class="tip" id="caveInfo"></div>
+    <div class="actions pair"><button id="ePlay" class="primary">Play World</button><button data-back>Done</button></div>
+  </div>
 </div>
-<div id="cross" class="game-only"></div>
-<div id="help" class="game-only"></div>
-<div id="swatch" class="game-only"></div>
-<div id="toast"></div>
-<div id="pause" class="game-only" hidden>
-  <h2>Video Craft</h2>
-  <div class="note">WASD move · Space jump · Mouse look<br>Left click dig · Right click place · F fly · L headlamp</div>
-  <button id="resume" class="primary">Click to explore</button>
-  <button id="toPreview">Back to preview</button>
+
+<div id="loading" class="screen">
+  <div id="loadTitle">Generating World</div>
+  <div id="loadMsg"></div>
+  <div class="lbar"><div id="loadBar"></div></div>
 </div>
-<div id="touch" class="game-only" hidden>
+
+<div id="options" class="screen">
+  <h1>Options</h1>
+  <div class="grid2">
+    <div class="mslider"><input type="range" id="optFov" min="50" max="110" step="1"><span id="optFovo"></span></div>
+    <div class="mslider"><input type="range" id="optSens" min="20" max="200" step="5"><span id="optSenso"></span></div>
+    <button class="cycle" data-opt="sound" data-label="Sound"></button>
+    <button class="cycle" data-opt="bob" data-label="View Bobbing"></button>
+  </div>
+  <button data-back>Done</button>
+</div>
+
+<div id="album" class="screen">
+  <h1>Frame Album</h1>
+  <div class="tip" id="albumInfo"></div>
+  <div id="albumGrid"></div>
+  <div id="albumView" hidden>
+    <canvas id="albumBig" width="1" height="1"></canvas>
+    <div id="albumCap"></div>
+  </div>
+  <div class="actions">
+    <div class="pair" id="albumNav" hidden><button id="albumPrev">Previous</button><button id="albumNext">Next</button></div>
+    <div class="pair"><button id="albumPlay">Play Unearthed Frames</button><button id="albumDone">Done</button></div>
+  </div>
+</div>
+
+<div id="controls" class="screen">
+  <h1>Controls</h1>
+  <div class="keys" id="keyList"></div>
+  <button data-back>Done</button>
+</div>
+
+<div id="hud">
+  <div id="cross"></div>
+  <div id="mapItem"><div class="paper"><canvas id="hudThumb" width="1" height="1"></canvas></div><div id="hudTime"></div></div>
+  <div id="debug"></div>
+  <div id="chat"></div>
+  <div id="hand"></div>
+  <div id="bottom">
+    <div id="actionbar"></div>
+    <div id="xp"><div id="xpLevel"></div><div id="xpBar"><div></div></div></div>
+    <div id="hotbar"></div>
+  </div>
+</div>
+<div id="toast"><span id="toastIcon"></span><div><div class="t1"></div><div class="t2"></div></div></div>
+
+<div id="pause" class="screen">
+  <h1>Game Menu</h1>
+  <div class="menu">
+    <button id="resume">Back to Game</button>
+    <button id="pAlbum">Frame Album</button>
+    <div class="pair"><button data-go="options">Options…</button><button data-go="controls">Controls…</button></div>
+    <button id="toTitle">Save and Quit to Title</button>
+  </div>
+</div>
+
+<div id="touch">
   <div id="joy"><div></div></div>
-  <button id="tJump" style="right:16px;bottom:calc(env(safe-area-inset-bottom) + 80px)">Jump</button>
-  <button id="tDown" style="right:90px;bottom:calc(env(safe-area-inset-bottom) + 80px);display:none">Down</button>
-  <button id="tAct" style="right:16px;bottom:calc(env(safe-area-inset-bottom) + 146px)">Dig</button>
-  <button id="tFly" style="right:16px;top:calc(env(safe-area-inset-top) + 12px)">Fly</button>
-  <button id="tLamp" style="right:90px;top:calc(env(safe-area-inset-top) + 12px)">Lamp</button>
-  <button id="tMenu" style="right:164px;top:calc(env(safe-area-inset-top) + 12px)">Exit</button>
+  <button class="tb" id="tPause">II</button>
+  <button class="tb" id="tJump">Jump</button>
+  <button class="tb" id="tDown">Down</button>
+  <button class="tb" id="tFly">Fly</button>
+  <button class="tb on" id="tLamp">Lamp</button>
+  <button class="tb" id="tAlbum">Album</button>
 </div>
 
 <script>
@@ -174,15 +353,34 @@
 const $ = id => document.getElementById(id);
 const canvas = $('gl');
 const coarse = matchMedia('(pointer:coarse)').matches;
+
+// 16×16 pixel tiles: dirt behind the menus, stone for the logo, and grain over block icons.
+function pixelTile(pick) {
+  const c = document.createElement('canvas'), x = c.getContext('2d');
+  c.width = c.height = 16;
+  for (let i = 0; i < 256; i++) { x.fillStyle = pick(); x.fillRect(i & 15, i >> 4, 1, 1); }
+  return `url(${c.toDataURL()})`;
+}
+const weighted = list => () => list[Math.floor(Math.random() ** 1.7 * list.length)];
+document.documentElement.style.setProperty('--dirt', pixelTile(weighted(['#866043', '#79553a', '#966c4a', '#593d29', '#b9855c'])));
+document.documentElement.style.setProperty('--stonetex', pixelTile(weighted(['#8f8f8f', '#7f7f7f', '#a3a3a3', '#6e6e6e', '#b8b8b8'])));
+{
+  let rects = '';
+  for (let i = 0; i < 16; i++) rects += `<rect x="${(i & 3) * 2}" y="${(i >> 2) * 2}" width="2" height="2" fill="${Math.random() < 0.5 ? '#000' : '#fff'}" fill-opacity="${(Math.random() * 0.22).toFixed(2)}"/>`;
+  $('grainPat').innerHTML = rects;
+}
+const SPLASHES = ['Dig = rewind!', 'Every block a pixel!', 'Now with caves!', 'Made of frames!', 'Mind the bedrock!', 'Also try slit-scan!', 'Time is a block!', '100% video!'];
+$('splash').textContent = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
 const CH = 16;                       // chunk edge in voxels
 const MAXQ = CH * CH * CH * 3 + CH * CH * 4;   // worst-case quads per chunk (checkerboard + side walls); fits 16-bit indices
 const BEDROCK = 0;                   // world layer y=0 is unbreakable bedrock
 
-const settings = { rock: 'bright', smooth: 1, axis: 'up', fill: 60 };
+const DEFAULTS = { rock: 'bright', smooth: 1, axis: 'up', fill: 60, stretch: 1, caves: 1, color: null };
+let settings = { ...DEFAULTS };   // terrain settings of the world being shaped
 let src = null;      // { w, h, d, frames:[Uint8ClampedArray], t0, t1, label, still? }
 let W = null;        // world, see deriveWorld()
 let mode = 'preview';
-let gl, prog, U = {}, quadEBO, lineVAO, lineVBO, xrayVAO = null, xrayCount = 0;
+let gl, prog, U = {}, quadEBO, lineVAO, lineVBO, xrayVAO = null, xrayCount = 0, cloudVAO = null, cloudCount = 0;
 let chunks = [];
 let needsRender = false;
 
@@ -195,15 +393,43 @@ void main() { vCol = aCol.rgb; vShade = aCol.a; vSky = aLit.x; vEmis = aLit.y; v
 const FS = `#version 300 es
 precision highp float;
 in vec3 vCol; in float vShade, vSky, vEmis; in vec3 vW;
-uniform vec3 uEye, uFog; uniform float uSun, uAmb, uLamp, uFogFar, uAlpha;
+uniform vec3 uEye, uFog; uniform float uSun, uAmb, uLamp, uFogFar, uAlpha, uCrack;
 out vec4 o;
+float hash(vec3 t) {
+  uvec3 u = uvec3(ivec3(floor(t)));
+  uint h = u.x * 73856093u ^ u.y * 19349663u ^ u.z * 83492791u;
+  h ^= h >> 13; h *= 1274126177u; h ^= h >> 16;
+  return float(h & 255u) / 255.0;
+}
+// Texel coordinates (16 per block) just inside the face being drawn, plus the face normal.
+vec3 texel(out vec3 n) {
+  n = cross(dFdx(vW), dFdy(vW));
+  n *= inversesqrt(max(dot(n, n), 1e-20));
+  return (vW - n * 0.01) * 16.0;
+}
+// Block texture: grain on every face. Fades out where texels shrink below a pixel.
+float grain() {
+  vec3 n, t = texel(n), w = fwidth(t);
+  float fade = 1.0 - smoothstep(0.6, 1.4, max(w.x, max(w.y, w.z)));
+  return 1.0 + (hash(t) - 0.5) * 0.24 * fade;
+}
 void main() {
+  if (uCrack > 0.0) {
+    // Breaking overlay: cracks spread out from the middle of each face as mining progresses.
+    vec3 n, t = floor(texel(n)), an = abs(n);
+    vec2 uv = an.x > 0.5 ? t.yz : an.y > 0.5 ? t.xz : t.xy;
+    float r = length(mod(uv, 16.0) - 7.5) / 8.0;
+    if (r > uCrack * 1.5 || hash(floor(t / 2.0) + 7.0) > 0.5 || hash(t) > 0.8) discard;
+    o = vec4(0.0, 0.0, 0.0, 0.7);
+    return;
+  }
   float d = distance(vW, uEye);
   vec3 c;
   if (vEmis > 0.5) c = vCol;
   else {
     float lamp = uLamp / (1.0 + 0.025 * d * d);
     c = vCol * vShade * min(vSky * uSun + uAmb + lamp, 1.35);
+    if (uAlpha > 0.99) c *= grain();
   }
   if (uFogFar > 0.0) c = mix(c, uFog, smoothstep(uFogFar * 0.55, uFogFar, d));
   o = vec4(c, uAlpha);
@@ -222,7 +448,7 @@ function initGL() {
   gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
   gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
   gl.linkProgram(prog);
-  for (const n of ['uVP', 'uEye', 'uFog', 'uSun', 'uAmb', 'uLamp', 'uFogFar', 'uAlpha']) U[n] = gl.getUniformLocation(prog, n);
+  for (const n of ['uVP', 'uEye', 'uFog', 'uSun', 'uAmb', 'uLamp', 'uFogFar', 'uAlpha', 'uCrack']) U[n] = gl.getUniformLocation(prog, n);
   // Shared index buffer: quads as (0,1,2)(0,2,3).
   const maxQuads = MAXQ, idx = new Uint16Array(maxQuads * 6);
   for (let q = 0; q < maxQuads; q++) idx.set([q * 4, q * 4 + 1, q * 4 + 2, q * 4, q * 4 + 2, q * 4 + 3], q * 6);
@@ -294,12 +520,22 @@ function boxBlur(a, w, h, d, r) {
 function deriveWorld() {
   const { w, h, d, frames } = src, N = w * h;
   let score = new Float32Array(N * d);
-  if (settings.rock === 'still') score.set(stillness());
-  else {
-    const inv = settings.rock === 'dark';
+  const rock = settings.rock;
+  if (rock === 'still' || rock === 'moving') {
+    const s = stillness();
+    if (rock === 'still') score.set(s); else for (let i = 0; i < s.length; i++) score[i] = 255 - s[i];
+  } else {
+    const [cr, cg, cb] = settings.color || [128, 128, 128];
     for (let f = 0; f < d; f++) {
       const fr = frames[f];
-      for (let i = 0; i < N; i++) { const l = luminance(fr, i * 4); score[f * N + i] = inv ? 255 - l : l; }
+      for (let i = 0; i < N; i++) {
+        const p = i * 4, r = fr[p], g = fr[p + 1], b = fr[p + 2];
+        score[f * N + i] =
+          rock === 'bright' ? luminance(fr, p) :
+          rock === 'dark' ? 255 - luminance(fr, p) :
+          rock === 'colorful' ? Math.max(r, g, b) - Math.min(r, g, b) :
+          255 - Math.hypot(r - cr, g - cg, b - cb) * 0.58;     // 'color': closeness to the picked colour
+      }
     }
   }
   if (settings.smooth) score = boxBlur(score, w, h, d, settings.smooth);
@@ -310,8 +546,8 @@ function deriveWorld() {
   for (; b > 0; b--) { acc += hist[b]; if (acc >= want) break; }
   const thr = b / 4;
 
-  const up = settings.axis === 'up';
-  const X = w, Y = 1 + (up ? d : h), Z = up ? h : d;
+  const up = settings.axis === 'up', k = settings.stretch;   // k layers of blocks per frame
+  const X = w, Y = 1 + (up ? d * k : h), Z = up ? h : d * k;
   const NV = X * Y * Z, solid = new Uint8Array(NV), col = new Uint8Array(NV * 3);
   for (let y = 0; y < Y; y++) for (let z = 0; z < Z; z++) for (let x = 0; x < X; x++) {
     const i = x + X * (z + Z * y);
@@ -321,13 +557,16 @@ function deriveWorld() {
       col[i * 3] = g; col[i * 3 + 1] = g; col[i * 3 + 2] = g + 6;
       continue;
     }
-    const f = up ? y - 1 : z, r = up ? z : h - y;
+    const f = Math.floor(up ? (y - 1) / k : z / k), r = up ? z : h - y;
     const v = r * w + x;
     solid[i] = score[f * N + v] >= thr ? 1 : 0;
     const fr = frames[f];
     col[i * 3] = fr[v * 4]; col[i * 3 + 1] = fr[v * 4 + 1]; col[i * 3 + 2] = fr[v * 4 + 2];
   }
-  W = { X, Y, Z, solid, col, up, top: new Int16Array(X * Z), clipPos: Infinity,
+  W = { X, Y, Z, solid, col, up, k, top: new Int16Array(X * Z), clipPos: Infinity,
+        // Unearthing: which blocks you've uncovered, and how much of each frame that adds up to.
+        seen: new Uint8Array(NV), fseen: new Int32Array(d), unearthed: new Uint8Array(d), fsize: w * h * k, revealN: 0,
+        need: Math.max(40, Math.round(Math.min(w * h * k * 0.1, 200 * k))),
         ncx: Math.ceil(X / CH), ncy: Math.ceil(Y / CH), ncz: Math.ceil(Z / CH), spawn: null };
   for (let z = 0; z < Z; z++) for (let x = 0; x < X; x++) updateTop(x, z);
   findCaves();
@@ -335,7 +574,7 @@ function deriveWorld() {
 }
 
 // Frame index for a world cell, and the frame's time in seconds.
-function frameAt(y, z) { return Math.max(0, Math.min(src.d - 1, W.up ? y - 1 : z)); }
+function frameAt(y, z) { return Math.max(0, Math.min(src.d - 1, Math.floor(W.up ? (y - 1) / W.k : z / W.k))); }
 function frameTime(f) { return src.t0 + (src.t1 - src.t0) * f / Math.max(1, src.d - 1); }
 function timeAxisCoord(y, z) { return W.up ? y : z; }   // world coordinate that runs along time
 
@@ -508,8 +747,9 @@ function remeshAll() {
 }
 
 // Glowing outlines of every hidden cave, drawn through the terrain.
+function caveHue(id) { const h = (id * 0.618) % 1, f = k => Math.round(255 * (0.55 + 0.45 * Math.cos(6.283 * (h + k)))); return [f(0), f(0.33), f(0.67)]; }
 function buildXray() {
-  const hue = id => { const h = (id * 0.618) % 1, f = k => Math.round(255 * (0.55 + 0.45 * Math.cos(6.283 * (h + k)))); return [f(0), f(0.33), f(0.67)]; };
+  const hue = caveHue;
   const verts = [];
   const { X, Z } = W, XZ = X * Z;
   for (const cv of W.caves) {
@@ -549,6 +789,43 @@ function lineBox(x0, y0, z0, x1, y1, z1, rgb) {
   gl.bufferData(gl.ARRAY_BUFFER, buf, gl.DYNAMIC_DRAW);
   gl.bindVertexArray(lineVAO);
   gl.drawArrays(gl.LINES, 0, E.length);
+}
+
+// Unindexed triangles from [x, y, z] points in one colour, through the line buffer.
+function drawTris(pts, rgb, emis, shades) {
+  const buf = new ArrayBuffer(pts.length * 20), f = new Float32Array(buf), u = new Uint8Array(buf);
+  pts.forEach((p, i) => { f.set(p, i * 5); u.set([...rgb, shades ? shades[(i / 6) | 0] * 255 : 255, 255, emis ? 255 : 0], i * 20 + 12); });
+  gl.bindBuffer(gl.ARRAY_BUFFER, lineVBO);
+  gl.bufferData(gl.ARRAY_BUFFER, buf, gl.DYNAMIC_DRAW);
+  gl.bindVertexArray(lineVAO);
+  gl.drawArrays(gl.TRIANGLES, 0, pts.length);
+}
+function cubeTris(x0, y0, z0, x1, y1, z1) {
+  const c = [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]];
+  const F = [[0, 1, 2, 3], [5, 4, 7, 6], [4, 0, 3, 7], [1, 5, 6, 2], [3, 2, 6, 7], [4, 5, 1, 0]], out = [];
+  for (const [a, b, d, e] of F) out.push(c[a], c[b], c[d], c[a], c[d], c[e]);
+  return out;
+}
+// Flat blocky clouds high over the world, like Minecraft's "fast" clouds.
+function buildClouds() {
+  if (cloudVAO) { gl.deleteVertexArray(cloudVAO.vao); gl.deleteBuffer(cloudVAO.vbo); cloudVAO = null; }
+  const S = 12, y = W.Y + 28, R = Math.ceil(Math.max(W.X, W.Z) * 1.6 / S), cx = Math.floor(W.X / 2 / S), cz = Math.floor(W.Z / 2 / S);
+  const quads = [];
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let j = -R; j <= R; j++) for (let i = -R; i <= R; i++) {
+    const v = rnd() + 0.35 * Math.sin(i * 0.7) * Math.cos(j * 0.5);
+    if (v < 0.72) continue;
+    const x = (cx + i) * S, z = (cz + j) * S;
+    quads.push([[x, y, z], [x + S, y, z], [x + S, y, z + S], [x, y, z + S]]);
+  }
+  cloudCount = quads.length * 4;
+  if (!cloudCount) return;
+  const buf = new ArrayBuffer(cloudCount * 20), f = new Float32Array(buf), u = new Uint8Array(buf);
+  quads.flat().forEach((p, i) => { f.set(p, i * 5); u.set([255, 255, 255, 255, 255, 255], i * 20 + 12); });
+  const vbo = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  gl.bufferData(gl.ARRAY_BUFFER, buf, gl.STATIC_DRAW);
+  cloudVAO = { vbo, vao: makeVAO(vbo, true) };
 }
 
 // ---------------------------------------------------------------- math
@@ -594,7 +871,7 @@ function raycast(o, d, maxT, test) {
 // ---------------------------------------------------------------- cameras & rendering
 const orbit = { yaw: 0.7, pitch: 0.55, dist: 200 };
 const P = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: -0.2, onGround: false, fly: false, lamp: true, step: 0,
-  held: [200, 200, 200], placeMode: false };
+  slots: [], sel: 0, walk: 0, bob: 0, fovK: 1 };
 const EYE = 1.55, HALF = 0.3, TALL = 1.75;
 
 // In game, the render scale drops on slow devices (see tick) but never below one pixel per CSS pixel.
@@ -607,8 +884,8 @@ function resize() {
 function center() { return [W.X / 2, W.Y / 2, W.Z / 2]; }
 // NDC offset of the visible area's centre when the controls panel covers part of the screen.
 function viewShift() {
-  const pn = $('panel');
-  if (mode !== 'preview' || pn.classList.contains('hidden')) return [0, 0];
+  const pn = $('editPanel');
+  if (mode !== 'preview' || screen !== 'edit') return [0, 0];
   const r = pn.getBoundingClientRect();
   if (r.width < innerWidth * 0.9) return [-Math.min(0.6, r.width / innerWidth), 0];
   return [0, Math.min(0.7, Math.max(0, (innerHeight - r.top) / innerHeight))];
@@ -624,8 +901,13 @@ function orbitEye() {
 }
 function camera() {
   const aspect = canvas.width / canvas.height;
+  if (pano) {
+    // Title panorama: standing above the middle of the world, slowly turning.
+    const eye = [W.X / 2, W.Y + 4, W.Z / 2], fwd = fwdOf(orbit.yaw * 2, -0.28), fov = 75 * Math.PI / 180;
+    return { eye, fwd, fov, aspect, vp: mul(perspective(fov, aspect, 0.05, 600), lookDir(eye, fwd)) };
+  }
   if (mode === 'game') {
-    const eye = [P.x, P.y + EYE + P.step, P.z], fwd = fwdOf(P.yaw, P.pitch), fov = 70 * Math.PI / 180;
+    const sh = shake * 0.35, eye = [P.x + (Math.random() - 0.5) * sh, P.y + EYE + P.step + bobOffset() + (Math.random() - 0.5) * sh, P.z + (Math.random() - 0.5) * sh], fwd = fwdOf(P.yaw, P.pitch), fov = opts.fov * P.fovK * Math.PI / 180;
     return { eye, fwd, fov, aspect, vp: mul(perspective(fov, aspect, 0.05, 600), lookDir(eye, fwd)) };
   }
   const eye = orbitEye(), fwd = norm(center().map((c, i) => c - eye[i])), fov = 45 * Math.PI / 180;
@@ -645,9 +927,10 @@ function requestRender() { if (!needsRender && mode === 'preview') { needsRender
 function render() {
   resize();
   gl.viewport(0, 0, canvas.width, canvas.height);
-  const game = mode === 'game';
-  const fog = game ? [0.62, 0.78, 0.95] : [0.06, 0.063, 0.08];
-  gl.clearColor(fog[0], fog[1], fog[2], 1);
+  const game = mode === 'game' || pano;   // the panorama is drawn like the game: sky, sun, clouds
+  const fog = [0.66, 0.79, 1.0];
+  // The preview clears to transparent so the dirt menu background shows around the world.
+  if (game) gl.clearColor(fog[0], fog[1], fog[2], 1); else gl.clearColor(0, 0, 0, 0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   if (!W) return;
   const cam = camera();
@@ -657,25 +940,73 @@ function render() {
   gl.uniform3fv(U.uFog, fog);
   gl.uniform1f(U.uSun, game ? 1 : 0.6);
   gl.uniform1f(U.uAmb, game ? 0.1 : 0.5);
-  gl.uniform1f(U.uLamp, game && P.lamp ? 1.1 : 0);
+  gl.uniform1f(U.uLamp, mode === 'game' && P.lamp ? 1.1 : 0);
   gl.uniform1f(U.uFogFar, game ? Math.max(W.X, W.Z) * 1.3 : 0);
   gl.uniform1f(U.uAlpha, 1);
+  gl.uniform1f(U.uCrack, 0);
+  if (game) {
+    // A square sun, drawn first and without depth so everything covers it.
+    const sd = norm([0.45, 0.75, -0.5]), sr = norm(cross(sd, [0, 1, 0])), su = cross(sr, sd), D = 400, R = 26;
+    const sp = (a, b) => [0, 1, 2].map(i => cam.eye[i] + sd[i] * D + sr[i] * a * R + su[i] * b * R);
+    gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+    drawTris([sp(-1, -1), sp(1, -1), sp(1, 1), sp(-1, -1), sp(1, 1), sp(-1, 1)], [255, 252, 210], true);
+  }
   gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.disable(gl.BLEND); gl.depthMask(true);
   for (const c of chunks) if (c && c.count) { gl.bindVertexArray(c.vao); gl.drawElements(gl.TRIANGLES, c.count, gl.UNSIGNED_SHORT, 0); }
 
+  if (game && cloudVAO) {
+    gl.disable(gl.CULL_FACE); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+    gl.uniform1f(U.uFogFar, Math.max(W.X, W.Z) * 2.2);
+    gl.uniform1f(U.uAlpha, 0.8);
+    gl.bindVertexArray(cloudVAO.vao);
+    gl.drawElements(gl.TRIANGLES, cloudCount / 4 * 6, gl.UNSIGNED_SHORT, 0);
+    gl.uniform1f(U.uAlpha, 1); gl.disable(gl.BLEND); gl.depthMask(true); gl.enable(gl.CULL_FACE);
+  }
   gl.uniform1f(U.uFogFar, 0);
-  if (game) {
+  if (pano) {
+    // nothing else to draw over the panorama
+  } else if (game) {
     const hit = target(cam);
     if (hit) {
-      const [x, y, z] = P.placeMode ? [hit.px, hit.py, hit.pz] : [hit.x, hit.y, hit.z], e = 0.004;
-      lineBox(x - e, y - e, z - e, x + 1 + e, y + 1 + e, z + 1 + e, P.placeMode ? [120, 220, 255] : [20, 20, 20]);
+      const e = 0.004;
+      lineBox(hit.x - e, hit.y - e, hit.z - e, hit.x + 1 + e, hit.y + 1 + e, hit.z + 1 + e, [20, 20, 20]);
+    }
+    // Lit TNT: red with a white band, flashing white faster as the fuse runs down; then smoke puffs.
+    const CS = [0.68, 0.68, 0.8, 0.8, 1, 0.5];
+    gl.disable(gl.CULL_FACE);
+    for (const t of tnts) {
+      const s = 0.5 * (1 + Math.max(0, 0.6 - t.fuse) * 0.25), c = [t.x + 0.5, t.y + 0.5, t.z + 0.5];
+      const box = (sy0, sy1, e) => cubeTris(c[0] - s - e, c[1] + sy0, c[2] - s - e, c[0] + s + e, c[1] + sy1, c[2] + s + e);
+      if (Math.floor(t.fuse * (t.fuse < 0.8 ? 10 : 4)) % 2 === 0) drawTris(box(-s, s, 0), [255, 255, 255], true);
+      else {
+        drawTris(box(-s, s, 0), [214, 56, 34], false, CS);
+        drawTris(box(-s * 0.2, s * 0.25, 0.003), [235, 235, 235], false, CS);
+      }
+    }
+    if (puffs.length) {
+      gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+      for (const p of puffs) {
+        const k = p.age / p.life, s = p.size * (0.6 + k);
+        gl.uniform1f(U.uAlpha, 0.85 * (1 - k));
+        drawTris(cubeTris(p.x - s / 2, p.y - s / 2, p.z - s / 2, p.x + s / 2, p.y + s / 2, p.z + s / 2), k < 0.15 ? [255, 240, 200] : [200, 200, 200], true);
+      }
+      gl.uniform1f(U.uAlpha, 1); gl.disable(gl.BLEND); gl.depthMask(true);
+    }
+    gl.enable(gl.CULL_FACE);
+    if (mine && mine.t > 0) {
+      const e = 0.003;
+      gl.disable(gl.CULL_FACE); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+      gl.uniform1f(U.uCrack, Math.min(1, mine.t / BREAK_TIME));
+      drawTris(cubeTris(mine.x - e, mine.y - e, mine.z - e, mine.x + 1 + e, mine.y + 1 + e, mine.z + 1 + e), [0, 0, 0], false);
+      gl.uniform1f(U.uCrack, 0); gl.disable(gl.BLEND); gl.depthMask(true); gl.enable(gl.CULL_FACE);
     }
   } else {
     const s = W.spawn;
     lineBox(s.x - 0.5, s.y, s.z - 0.5, s.x + 0.5, s.y + 2, s.z + 0.5, [255, 191, 60]);
     lineBox(s.x - 0.1, s.y + 2, s.z - 0.1, s.x + 0.1, W.Y + 6, s.z + 0.1, [255, 191, 60]);
-    if ($('xray').classList.contains('on') && xrayVAO) {
+    if ($('xray').classList.contains('on') && settings.caves && xrayVAO) {
       gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+      gl.colorMask(true, true, true, false);   // leave canvas alpha alone so the glow can't punch through to the page
       gl.uniform1f(U.uAlpha, 0.22);
       gl.bindVertexArray(xrayVAO.vao);
       const maxIdx = MAXQ * 6;
@@ -687,6 +1018,7 @@ function render() {
         gl.vertexAttribPointer(2, 4, gl.UNSIGNED_BYTE, true, 20, v * 20 + 16);
         gl.drawElements(gl.TRIANGLES, Math.min(maxIdx, (xrayCount - v) / 4 * 6), gl.UNSIGNED_SHORT, 0);
       }
+      gl.colorMask(true, true, true, true);
     }
   }
   gl.bindVertexArray(null);
@@ -698,14 +1030,11 @@ async function buildFromSource(w, h, d, drawFrame, meta) {
   cv.width = w; cv.height = h;
   const ctx = cv.getContext('2d', { willReadFrequently: true });
   const frames = [];
-  $('prog').hidden = false;
   for (let f = 0; f < d; f++) {
     await drawFrame(ctx, f);
     frames.push(ctx.getImageData(0, 0, w, h).data);
-    $('prog').value = (f + 1) / d;
-    setStatus(`Extracting frame ${f + 1} / ${d}`);
+    setLoad(`Extracting frame ${f + 1} of ${d}`, (f + 1) / d * 0.85);
   }
-  $('prog').hidden = true;
   src = { w, h, d, frames, ...meta };
   await regenerate(true);
 }
@@ -713,18 +1042,11 @@ async function buildFromSource(w, h, d, drawFrame, meta) {
 async function regenerate(resetView) {
   if (!src) return;
   setStatus('Shaping terrain…');
+  setLoad('Building terrain', 0.9);
   await new Promise(r => setTimeout(r, 0));
   deriveWorld();
-  setupCut();
-  remeshAll();
-  buildXray();
-  if (resetView) { orbit.yaw = 0.7; orbit.pitch = 0.55; orbit.dist = fitDistance(); }
-  const n = W.caves.length, big = n ? Math.max(...W.caves.map(c => c.size)) : 0;
-  $('caveInfo').textContent = n ? `${n} sealed cave${n > 1 ? 's' : ''} hidden inside · largest ${big} blocks` : 'No sealed caves. Try more rock fill or a different "Rock is".';
-  setStatus(`${src.label} · ${W.X}×${W.Z} blocks, ${W.Y - 1} layers deep`);
-  $('enter').disabled = false;
-  $('hint').textContent = '';
-  requestRender();
+  if (cur && cur.src === src) { cur.W = W; cur.slots = newSlots(); }
+  showWorld(resetView);
 }
 
 function demoDraw() {
@@ -766,7 +1088,189 @@ function loadDemo() {
   return buildFromSource(w, h, d, draw, { t0: 0, t1: (d - 1) / 24, label: 'Demo' });
 }
 
-// ---- video source
+// Show the current W: mesh it, refresh everything that describes it, and frame it.
+function showWorld(resetView) {
+  setupCut();
+  remeshAll();
+  buildXray();
+  buildClouds();
+  if (resetView) { orbit.yaw = 0.7; orbit.pitch = 0.55; orbit.dist = fitDistance(); }
+  updateCaveInfo();
+  setStatus('Drag to look around. Tap the world to set your spawn.');
+  $('hint').textContent = '';
+  worldDirty = true;
+  requestRender();
+}
+function updateCaveInfo() {
+  const n = W.caves.length, big = n ? Math.max(...W.caves.map(c => c.size)) : 0;
+  $('caveInfo').textContent = `Unearth ${src.d} frames by digging and blasting. ` +
+    (!settings.caves ? 'Hidden caves are off.' : n ? `${n} sealed cave${n > 1 ? 's' : ''} hidden inside, the largest ${big} blocks.` : 'No sealed caves. Try more rock fill or another Rock setting.') +
+    ` ${W.X}×${W.Z} blocks, ${W.Y - 1} layers deep.`;
+}
+
+// ---------------------------------------------------------------- options & sound
+const opts = { fov: 70, sens: 100, sound: true, bob: true };
+try { Object.assign(opts, JSON.parse(localStorage.getItem('videocraft.opts') || '{}')); } catch (_) {}
+function saveOpts() { try { localStorage.setItem('videocraft.opts', JSON.stringify(opts)); } catch (_) {} }
+
+// Little synthesized sounds: noise bursts for blocks and steps, blips for buttons and pickups.
+const sfx = (() => {
+  let ac = null, noise = null;
+  function ctx() {
+    if (!ac) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      ac = new AC();
+      noise = ac.createBuffer(1, ac.sampleRate * 0.4, ac.sampleRate);
+      const d = noise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    if (ac.state === 'suspended') ac.resume();
+    return ac;
+  }
+  function burst(freq, q, dur, gain) {
+    const a = opts.sound && ctx(); if (!a) return;
+    const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(), t = a.currentTime;
+    s.buffer = noise; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    s.connect(f).connect(g).connect(a.destination); s.start(t, Math.random() * 0.2); s.stop(t + dur);
+  }
+  function tone(freq, dur, gain, type = 'sine', at = 0) {
+    const a = opts.sound && ctx(); if (!a) return;
+    const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + at;
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur);
+  }
+  return {
+    click: () => { tone(520, 0.05, 0.12, 'square'); tone(260, 0.07, 0.08, 'triangle'); },
+    hit: () => burst(700 + Math.random() * 400, 1.4, 0.07, 0.35),
+    dig: () => { burst(380 + Math.random() * 200, 0.7, 0.22, 0.9); burst(1400, 1, 0.08, 0.3); },
+    place: () => burst(260 + Math.random() * 80, 0.9, 0.16, 0.9),
+    step: () => burst(300 + Math.random() * 200, 1.2, 0.08, 0.22),
+    pop: () => tone(900 + Math.random() * 500, 0.08, 0.08),
+    fuse: () => burst(5000, 0.6, 0.9, 0.12),
+    boom: () => { burst(90, 0.4, 1.6, 2.5); burst(300, 0.6, 0.8, 1.2); burst(1500, 0.8, 0.3, 0.5); },
+    level: () => [660, 830, 990, 1320].forEach((f, i) => tone(f, 0.25, 0.12, 'sine', i * 0.07)),
+  };
+})();
+document.addEventListener('click', e => { if (e.target.closest('button, .btn')) sfx.click(); }, true);
+
+// ---------------------------------------------------------------- screens
+// Every menu is a "screen"; null means playing. back() returns to the screen that opened this one.
+let screen = 'title';
+const backStack = [];
+const PANORAMA = new Set(['title', 'worlds', 'create', 'options', 'controls']);
+function show(s) {
+  screen = s;
+  syncBody();
+  if (s === null && mode === 'game' && !coarse && document.pointerLockElement !== canvas) {
+    try { canvas.requestPointerLock()?.catch?.(() => {}); } catch (_) {}
+  }
+  if (s === 'album') openAlbum();
+  if (s === 'edit') {
+    syncCycles();
+    $('editTitle').textContent = `Customize World: ${cur.name}`;
+    orbit.dist = fitDistance();
+    requestRender();
+  }
+  if (s === 'worlds') renderWorldList();
+  if (s === 'controls') renderKeys();
+  pano = mode === 'preview' && PANORAMA.has(s);
+  if (pano) startPanorama();
+}
+function go(s) { backStack.push(screen); show(s); }
+function back() { show(backStack.length ? backStack.pop() : mode === 'game' ? 'pause' : 'title'); }
+function syncBody() {
+  document.body.className = `s-${screen || 'play'}` + (mode === 'game' ? ' game' : '') + (coarse ? ' touch' : '') + (debugOn ? ' debug' : '');
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-go], [data-back]');
+  if (b) b.dataset.go ? go(b.dataset.go) : back();
+});
+addEventListener('keydown', e => {
+  // Handled here, so the game's own key handler (which opens the album on E) must not see it.
+  if ((e.code === 'KeyE' && mode === 'game' || e.code === 'Escape') && screen === 'album') { e.stopImmediatePropagation(); closeAlbum(); return; }
+  if (e.code === 'Escape' && screen && screen !== 'title' && screen !== 'loading' && screen !== 'pause') back();
+});
+
+// The title and menu screens show the current world slowly turning, like Minecraft's panorama.
+let panoOn = false, panoT = 0, pano = false;
+function startPanorama() {
+  if (panoOn) return;
+  panoOn = true; panoT = 0;
+  requestAnimationFrame(panoFrame);
+}
+function panoFrame(now) {
+  if (!pano) { panoOn = false; return; }
+  if (panoT) orbit.yaw += Math.min(0.1, (now - panoT) / 1000) * 0.06;
+  panoT = now;
+  if (W) render();
+  requestAnimationFrame(panoFrame);
+}
+
+function setLoad(msg, frac) {
+  $('loadMsg').textContent = msg;
+  $('loadBar').style.width = Math.round(frac * 100) + '%';
+}
+function setStatus(s) { $('status').textContent = s; }
+
+// ---------------------------------------------------------------- worlds
+// Each world keeps its captured frames, terrain settings, blocks (with your digging) and hotbar.
+const worlds = [];
+let cur = null, selWorld = null;
+function worldIcon() {
+  const { w, h, frames, d } = src, tmp = document.createElement('canvas');
+  tmp.width = w; tmp.height = h;
+  tmp.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(frames[d - 1]), w, h), 0, 0);
+  const c = document.createElement('canvas'), x = c.getContext('2d'), s = Math.min(w, h);
+  c.width = c.height = 64;
+  x.imageSmoothingEnabled = false;
+  x.drawImage(tmp, (w - s) / 2, (h - s) / 2, s, s, 0, 0, 64, 64);
+  return c.toDataURL();
+}
+function addWorld(name, label) {
+  cur = selWorld = { name, label, src, settings, W, icon: worldIcon(), created: new Date(), slots: newSlots() };
+  worlds.unshift(cur);
+}
+function switchTo(w) {
+  if (w === cur) return;
+  cur = w; src = w.src; settings = w.settings; W = w.W;
+  syncCycles();
+  showWorld(true);
+}
+function renderWorldList() {
+  const L = $('worldList');
+  L.textContent = '';
+  for (const w of worlds) {
+    const e = document.createElement('div'), found = w.W.caves.filter(c => c.found).length, total = w.W.caves.length;
+    e.className = 'entry' + (w === selWorld ? ' sel' : '');
+    e.innerHTML = '<img alt=""><div><div class="n"></div><div class="d"></div><div class="d"></div></div>';
+    e.querySelector('img').src = w.icon;
+    const [n, d1, d2] = e.querySelectorAll('.n, .d');
+    n.textContent = w.name;
+    d1.textContent = `${w.label} (${w.created.toLocaleDateString()} ${w.created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+    d2.textContent = `Spelunking Mode, ${w.W.unearthed.reduce((a, b) => a + b, 0)}/${w.src.d} frames unearthed` +
+      (w.settings.caves && total ? `, ${found}/${total} caves` : '');
+    e.onclick = () => { selWorld = w; renderWorldList(); };
+    e.ondblclick = () => { switchTo(w); enterGame(); };
+    L.appendChild(e);
+  }
+  if (!worlds.length) L.innerHTML = '<div class="tip" style="margin:auto">Generating the demo world…</div>';
+  $('wPlay').disabled = $('wEdit').disabled = !selWorld;
+}
+$('tSingle').onclick = () => go('worlds');
+$('tCreate').onclick = $('wNew').onclick = () => openCreate();
+$('wPlay').onclick = () => { if (selWorld) { switchTo(selWorld); enterGame(); } };
+$('wEdit').onclick = () => { if (selWorld) { switchTo(selWorld); go('edit'); } };
+$('ePlay').onclick = () => enterGame();
+
+// ---------------------------------------------------------------- create from video
+function openCreate() {
+  go('create');
+  if (!vid.src) $('wname').value = `New World${worlds.length > 1 ? ' ' + worlds.length : ''}`;
+}
+
 const vid = $('vid');
 let videoUrl = null;
 $('file').addEventListener('change', e => {
@@ -774,24 +1278,42 @@ $('file').addEventListener('change', e => {
   if (!f) return;
   if (videoUrl) URL.revokeObjectURL(videoUrl);
   videoUrl = URL.createObjectURL(f);
+  videoDur = 0; videoErr = '';
   vid.src = videoUrl;
   vid.dataset.name = f.name;
   vid.load();
   $('srcSec').hidden = false;
-  $('panel').classList.remove('hidden');
-  $('panel').scrollTop = 0;
-  setStatus('Loading video…');
-});
-vid.addEventListener('loadedmetadata', () => {
-  const dur = vid.duration;
-  for (const id of ['t0', 't1']) $(id).max = dur.toFixed(2);
-  $('t0').value = 0;
-  $('t1').value = Math.min(dur, 4).toFixed(2);
+  $('mem').textContent = 'Loading video…';
   updateSrcLabels();
-  setStatus(`${vid.videoWidth}×${vid.videoHeight}, ${dur.toFixed(1)} s. Pick a range and tap Build world.`);
+  if ($('wname').value.startsWith('New World')) $('wname').value = f.name.replace(/\.[^.]+$/, '').slice(0, 32);
 });
-vid.addEventListener('error', () => setStatus('This browser cannot decode that video.'));
-$('setStart').onclick = () => { $('t0').value = vid.currentTime; if (+$('t1').value <= vid.currentTime) $('t1').value = Math.min(vid.duration, vid.currentTime + 2); updateSrcLabels(); };
+// Known length of the chosen video, or 0 until it's known (or if it can't be read).
+let videoDur = 0, videoErr = '';
+vid.addEventListener('loadedmetadata', () => {
+  // Recorded or streamed files (often WebM) report an infinite duration until you seek past the end.
+  if (!isFinite(vid.duration)) { vid.currentTime = 1e9; return; }
+  videoReady();
+});
+vid.addEventListener('durationchange', () => {
+  if (!videoDur && isFinite(vid.duration) && vid.duration > 0 && vid.readyState >= 1) { vid.currentTime = 0; videoReady(); }
+});
+function videoReady() {
+  videoDur = vid.duration;
+  for (const id of ['t0', 't1']) $(id).max = videoDur.toFixed(2);
+  $('t0').value = 0;
+  $('t1').value = Math.min(videoDur, 4).toFixed(2);
+  fitToDevice();
+  updateSrcLabels();
+}
+// Start from the widest world this device can hold, so tall phone videos don't start out too large.
+function fitToDevice() {
+  const W0 = +$('width').min, F0 = +$('frames').min;
+  for (let w = 128; w >= W0; w -= 8) { $('width').value = w; if (blockCount() <= BLOCK_LIMIT) return; }
+  for (let d = +$('frames').value; d >= F0; d -= 8) { $('frames').value = d; if (blockCount() <= BLOCK_LIMIT) return; }
+}
+function blockCount() { const { w, h, d } = srcDims(); return w * h * d; }
+vid.addEventListener('error', () => { videoDur = 0; videoErr = 'This browser can’t play that video. Try an MP4 (H.264) or WebM file.'; updateSrcLabels(); });
+$('setStart').onclick = () => { $('t0').value = vid.currentTime; if (+$('t1').value <= vid.currentTime) $('t1').value = Math.min(videoDur, vid.currentTime + 2); updateSrcLabels(); };
 $('setEnd').onclick = () => { $('t1').value = vid.currentTime; if (+$('t0').value >= vid.currentTime) $('t0').value = Math.max(0, vid.currentTime - 2); updateSrcLabels(); };
 for (const id of ['t0', 't1', 'frames', 'width']) $(id).addEventListener('input', updateSrcLabels);
 
@@ -803,13 +1325,26 @@ function srcDims() {
 const BLOCK_LIMIT = (coarse ? 1.5 : 4) * 1e6;
 function updateSrcLabels() {
   const t0 = +$('t0').value, t1 = +$('t1').value;
-  $('t0o').textContent = t0.toFixed(2); $('t1o').textContent = t1.toFixed(2);
-  $('frameso').textContent = $('frames').value; $('widtho').textContent = $('width').value;
-  const { w, h, d } = srcDims(), n = w * h * d, over = n > BLOCK_LIMIT;
-  $('mem').textContent = `${w}×${h} blocks × ${d} layers · ${(n / 1e6).toFixed(2)}M blocks` + (over ? ' · too large for this device' : '');
-  $('mem').classList.toggle('warn', over);
-  $('build').disabled = over || !(t1 > t0) || !vid.duration;
+  $('t0o').textContent = `Start: ${t0.toFixed(2)} s`; $('t1o').textContent = `End: ${t1.toFixed(2)} s`;
+  $('frameso').textContent = `Layers: ${$('frames').value}`; $('widtho').textContent = `Width: ${$('width').value}`;
+  // The button says why it can't be pressed yet.
+  let why = '';
+  if (videoErr) { why = 'Can’t read this video'; $('mem').textContent = videoErr; }
+  else if (!vid.src) why = 'Choose a video first';
+  else if (!videoDur) why = 'Loading video…';
+  else {
+    const { w, h, d } = srcDims(), n = w * h * d, over = n > BLOCK_LIMIT;
+    $('mem').textContent = `${w}×${h} blocks × ${d} layers, ${(n / 1e6).toFixed(2)}M blocks` +
+      (over ? `. This device can hold up to ${BLOCK_LIMIT / 1e6}M: lower Width or Layers.` : '');
+    if (over) why = 'Too large: lower Width or Layers';
+    else if (!(t1 > t0)) why = 'End must be after Start';
+  }
+  $('mem').classList.toggle('warn', !!videoErr || why.startsWith('Too'));
+  $('build').disabled = !!why;
+  $('build').textContent = why || 'Create New World';
+  $('build').classList.toggle('primary', !why);
 }
+updateSrcLabels();
 function seekTo(t) {
   return new Promise(resolve => {
     if (Math.abs(vid.currentTime - t) < 1e-3 && vid.readyState >= 2) return resolve();
@@ -821,49 +1356,127 @@ function seekTo(t) {
   });
 }
 $('build').onclick = async () => {
-  const t0 = +$('t0').value, t1 = +$('t1').value;
+  const t0 = +$('t0').value, t1 = +$('t1').value, name = $('wname').value.trim() || 'New World';
   const { w, h, d } = srcDims();
-  $('build').disabled = true;
+  show('loading');
+  setLoad('Preparing video', 0);
   // iOS Safari won't decode frames for seeking until playback has started once.
   try { await vid.play(); } catch (_) {}
   vid.pause();
+  const prevSrc = src, prevW = W, prevSettings = settings;
   try {
+    cur = null;   // the new frames belong to no saved world yet
+    settings = { ...DEFAULTS };
     await buildFromSource(w, h, d, async (ctx, f) => {
-      await seekTo(Math.min(t0 + (t1 - t0) * f / Math.max(1, d - 1), vid.duration - 0.01));
+      await seekTo(Math.min(t0 + (t1 - t0) * f / Math.max(1, d - 1), videoDur - 0.01));
       ctx.drawImage(vid, 0, 0, w, h);
     }, { t0, t1, label: vid.dataset.name || 'Video' });
+    addWorld(name, vid.dataset.name || 'Video');
+    // Shape the terrain next, with the world previewed live.
+    backStack.length = 0; backStack.push('title', 'worlds');
+    show('edit');
   } catch (err) {
-    setStatus('Failed: ' + err.message);
-    $('prog').hidden = true;
+    src = prevSrc; W = prevW; settings = prevSettings; cur = worlds.find(x => x.W === W) || null;
+    show('create');
+    $('mem').textContent = 'Failed: ' + err.message;
   }
-  $('build').disabled = false;
 };
-$('demo').onclick = () => { $('srcSec').hidden = true; loadDemo(); };
 
-// ---------------------------------------------------------------- preview UI
-function setStatus(s) { $('status').textContent = s; }
+// ---------------------------------------------------------------- option buttons & sliders
 const ROCK_NOTES = {
   bright: 'Bright pixels are solid. Dark things carve tunnels through time.',
   dark: 'Dark pixels are solid. Bright things carve tunnels through time.',
   still: 'The unchanging background is solid. Anything that moves digs a tunnel.',
+  moving: 'Only things that move are solid: motion becomes sculpture, the background is air.',
+  colorful: 'Vivid, saturated pixels are solid. Greys and pale colours are air.',
+  color: 'Pixels close to this colour are solid:',
 };
-function syncSegs() {
-  for (const seg of document.querySelectorAll('.seg')) for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(settings[seg.dataset.key]));
+const cycleOpts = b => b.dataset.opts.split(',').map(s => s.split(':'));
+function syncCycles() {
+  for (const b of document.querySelectorAll('.cycle[data-key]')) {
+    const v = String(settings[b.dataset.key]);
+    b.textContent = `${b.dataset.label}: ${cycleOpts(b).find(o => o[0] === v)[1]}`;
+  }
+  for (const b of document.querySelectorAll('.cycle[data-opt]')) b.textContent = `${b.dataset.label}: ${opts[b.dataset.opt] ? 'ON' : 'OFF'}`;
   $('rockNote').textContent = ROCK_NOTES[settings.rock];
-  $('fillo').textContent = settings.fill + '%';
+  if (settings.rock === 'color' && settings.color) {
+    const s = document.createElement('span');
+    s.className = 'swatch'; s.style.background = `rgb(${settings.color})`;
+    $('rockNote').append(' ', s);
+  }
+  $('xray').disabled = !settings.caves;
+  $('fill').value = settings.fill;
+  $('fillo').textContent = `Rock Fill: ${settings.fill}%`;
+  $('optFov').value = opts.fov; $('optFovo').textContent = `FOV: ${opts.fov === 70 ? 'Normal' : opts.fov === 110 ? 'Quake Pro' : opts.fov}`;
+  $('optSens').value = opts.sens; $('optSenso').textContent = `Sensitivity: ${opts.sens}%`;
 }
-for (const seg of document.querySelectorAll('.seg')) seg.addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  const k = seg.dataset.key;
-  settings[k] = k === 'smooth' ? +b.dataset.v : b.dataset.v;
-  syncSegs();
-  regenerate(k === 'axis');
+for (const b of document.querySelectorAll('.cycle[data-key]')) b.addEventListener('click', () => {
+  const k = b.dataset.key, o = cycleOpts(b), i = o.findIndex(x => x[0] === String(settings[k]));
+  let v = o[(i + 1) % o.length][0];
+  if ('num' in b.dataset) v = +v;
+  // More layers per frame means more blocks; skip settings this device can't hold.
+  if (k === 'stretch' && src && src.w * src.h * src.d * v > BLOCK_LIMIT) {
+    v = 1;
+    setStatus(`Too many blocks for this device at more than 1 layer per frame. Try a shorter clip or fewer layers.`);
+  }
+  if (k === 'rock' && v === 'color' && !settings.color) settings.color = pixelAt(Math.floor(src.d / 2), 0.5, 0.5);
+  settings[k] = v;
+  syncCycles();
+  if (k === 'caves') {
+    if (!v) { $('xray').classList.remove('on'); $('xray').textContent = 'X-Ray Caves: OFF'; }
+    updateCaveInfo(); requestRender();
+    return;
+  }
+  if (screen === 'edit') regenerate(k === 'axis' || k === 'stretch');
 });
-$('fill').addEventListener('input', () => { settings.fill = +$('fill').value; syncSegs(); });
-$('fill').addEventListener('change', () => regenerate(false));
-$('togglePanel').onclick = () => $('panel').classList.toggle('hidden');
-$('panel').addEventListener('transitionend', e => { if (e.target === $('panel') && W) { orbit.dist = fitDistance(); requestRender(); } });
-$('xray').onclick = () => { $('xray').classList.toggle('on'); requestRender(); };
+// Colour of frame f at fractional position (u, v) across the picture.
+function pixelAt(f, u, v) {
+  const { w, h } = src, x = Math.min(w - 1, Math.floor(u * w)), y = Math.min(h - 1, Math.floor(v * h)), p = (y * w + x) * 4, fr = src.frames[f];
+  return [fr[p], fr[p + 1], fr[p + 2]];
+}
+$('sliceThumb').addEventListener('click', e => {
+  if (!src) return;
+  const r = $('sliceThumb').getBoundingClientRect();
+  settings.color = pixelAt(+$('cut').value - 1, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
+  settings.rock = 'color';
+  syncCycles();
+  regenerate(false);
+});
+for (const b of document.querySelectorAll('.cycle[data-opt]')) b.addEventListener('click', () => {
+  opts[b.dataset.opt] = !opts[b.dataset.opt]; saveOpts(); syncCycles();
+});
+$('fill').addEventListener('input', () => { settings.fill = +$('fill').value; syncCycles(); });
+$('fill').addEventListener('change', () => { if (screen === 'edit') regenerate(false); });
+$('optFov').addEventListener('input', () => { opts.fov = +$('optFov').value; saveOpts(); syncCycles(); });
+$('optSens').addEventListener('input', () => { opts.sens = +$('optSens').value; saveOpts(); syncCycles(); });
+
+function renderKeys() {
+  const rows = coarse ? [
+    ['Move', 'Left side drag'], ['Look', 'Right side drag'], ['Mine', 'Hold still'], ['Place', 'Tap'],
+    ['Pick block / TNT', 'Tap hotbar'], ['Jump', 'Jump'], ['Fly', 'Fly'], ['Headlamp', 'Lamp'], ['Frame Album', 'Album'], ['Game Menu', 'II'],
+  ] : [
+    ['Walk Forwards', 'W'], ['Strafe Left', 'A'], ['Walk Backwards', 'S'], ['Strafe Right', 'D'], ['Jump', 'Space'],
+    ['Sprint', 'Left Shift'], ['Mine', 'Hold Left Button'], ['Place Block', 'Right Button'], ['Hotbar Slots', '1–9 / Scroll'],
+    ['TNT (lights itself)', 'Slot 9'], ['Frame Album', 'E'], ['Toggle Flying', 'F'], ['Headlamp', 'L'], ['Debug Screen', 'F3'], ['Game Menu', 'Esc'],
+  ];
+  const L = $('keyList');
+  L.textContent = '';
+  for (const [a, k] of rows) {
+    const r = document.createElement('div');
+    r.className = 'krow';
+    r.innerHTML = '<span></span><span class="btn"></span>';
+    r.firstChild.textContent = a; r.lastChild.textContent = k;
+    L.appendChild(r);
+  }
+}
+
+// ---------------------------------------------------------------- edit world
+$('xray').onclick = () => {
+  const on = !$('xray').classList.contains('on');
+  $('xray').classList.toggle('on', on);
+  $('xray').textContent = `X-Ray Caves: ${on ? 'ON' : 'OFF'}`;
+  requestRender();
+};
 $('resetView').onclick = () => { orbit.yaw = 0.7; orbit.pitch = 0.55; orbit.dist = fitDistance(); requestRender(); };
 
 // "Cut at frame": hide every frame after the chosen one so you can look at the inside of the world.
@@ -872,12 +1485,11 @@ function setupCut() {
   W.clipPos = Infinity;
   updateCutLabel();
 }
-function clipCoordFor(frames) { return frames >= src.d ? Infinity : (W.up ? frames + 1 : frames); }
+function clipCoordFor(frames) { return frames >= src.d ? Infinity : (W.up ? frames * W.k + 1 : frames * W.k); }
 function updateCutLabel() {
   const n = +$('cut').value, f = n - 1;
-  $('cuto').textContent = n >= src.d ? 'all' : n;
+  $('cuto').textContent = n >= src.d ? 'Cut at Frame: All' : `Cut at Frame: ${n} (${frameTime(f).toFixed(2)} s)`;
   drawFrameThumb($('sliceThumb'), f, null);
-  $('sliceThumb').title = `Frame ${n} · ${frameTime(f).toFixed(2)} s`;
 }
 let cutPending = false;
 $('cut').addEventListener('input', () => {
@@ -903,23 +1515,25 @@ function drawFrameThumb(cv, f, dot) {
   src.imgs ||= [];
   ctx.putImageData(src.imgs[f] ||= new ImageData(src.frames[f], w, h), 0, 0);
   if (dot) {
-    ctx.fillStyle = '#ff3b3b'; ctx.fillRect(dot[0] - 1, dot[1] - 1, 3, 3);
-    ctx.fillStyle = '#fff'; ctx.fillRect(dot[0], dot[1], 1, 1);
+    // Map marker: a white arrow-ish dot like the player marker on a Minecraft map.
+    ctx.fillStyle = '#000'; ctx.fillRect(dot[0] - 2, dot[1] - 2, 5, 5);
+    ctx.fillStyle = '#fff'; ctx.fillRect(dot[0] - 1, dot[1] - 1, 3, 3);
   }
 }
 
-// orbit / pick
+// orbit / pick (Edit World only)
 const pointers = new Map();
 let pinch0 = 0, dist0 = 0, downAt = null;
+const editing = () => mode === 'preview' && screen === 'edit' && W;
 canvas.addEventListener('pointerdown', e => {
-  if (mode !== 'preview' || !W) return;
+  if (!editing()) return;
   canvas.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   downAt = pointers.size === 1 ? { x: e.clientX, y: e.clientY, moved: false } : null;
   if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); dist0 = orbit.dist; }
 });
 canvas.addEventListener('pointermove', e => {
-  if (mode !== 'preview' || !pointers.has(e.pointerId)) return;
+  if (!editing() || !pointers.has(e.pointerId)) return;
   const p = pointers.get(e.pointerId), dx = e.clientX - p.x, dy = e.clientY - p.y;
   p.x = e.clientX; p.y = e.clientY;
   if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6) downAt.moved = true;
@@ -941,7 +1555,8 @@ const endPointer = e => {
 canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
 canvas.addEventListener('wheel', e => {
-  if (mode !== 'preview' || !W) return;
+  if (mode === 'game') { e.preventDefault(); if (screen === null) selectSlot(P.sel + Math.sign(e.deltaY)); return; }
+  if (!editing()) return;
   e.preventDefault();
   orbit.dist = Math.max(10, Math.min(fitDistance() * 3, orbit.dist * Math.exp(e.deltaY * 0.001)));
   requestRender();
@@ -957,37 +1572,104 @@ function pickSpawn(cx, cy) {
   W.spawn = { x: hit.x + 0.5, y, z: hit.z + 0.5 };
   const f = frameAt(y, hit.z);
   const cv = W.cave[idx(hit.x, Math.min(y, W.Y - 1), hit.z)];
-  setStatus(`Spawn set · frame ${f + 1} · ${frameTime(f).toFixed(2)} s` + (y < W.top[hit.x + W.X * hit.z] ? ' · underground' : '') + (cv >= 0 ? ' · inside a cave!' : ''));
+  setStatus(`Spawn point set: frame ${f + 1}, ${frameTime(f).toFixed(2)} s` + (y < W.top[hit.x + W.X * hit.z] ? ', underground' : '') + (cv >= 0 ? ', inside a cave!' : ''));
+  sfx.pop();
   requestRender();
 }
+
+// ---------------------------------------------------------------- frame album
+let albumOpen = -1, albumTimer = 0;
+function openAlbum() {
+  stopAlbumPlay();
+  albumOpen = -1;
+  const n = W.unearthed.reduce((a, b) => a + b, 0);
+  $('albumInfo').textContent = `${n} of ${src.d} frames unearthed. Uncover ${W.need} blocks of a frame to unearth it.`;
+  const g = $('albumGrid');
+  g.textContent = '';
+  for (let f = 0; f < src.d; f++) {
+    const card = document.createElement('div'), cv = document.createElement('canvas'), cap = document.createElement('div');
+    card.className = 'card' + (W.unearthed[f] ? ' done' : '');
+    drawRevealed(cv, f, null);
+    cap.textContent = `${f + 1} · ` + (W.unearthed[f] ? `${frameTime(f).toFixed(2)} s` : `${Math.min(99, Math.floor(W.fseen[f] / W.need * 100))}%`);
+    card.append(cv, cap);
+    card.onclick = () => viewFrame(f);
+    g.appendChild(card);
+  }
+  $('albumGrid').hidden = false; $('albumView').hidden = true; $('albumNav').hidden = true;
+  $('albumPlay').disabled = n < 2;
+  $('albumPlay').textContent = n < 2 ? 'Unearth 2 frames to play' : 'Play Unearthed Frames';
+}
+function viewFrame(f) {
+  albumOpen = f;
+  $('albumGrid').hidden = true; $('albumView').hidden = false; $('albumNav').hidden = false;
+  drawRevealed($('albumBig'), f, null);
+  $('albumBig').style.width = Math.min(innerWidth - 40, src.w * 6) + 'px';
+  $('albumCap').textContent = `Frame ${f + 1} of ${src.d} · ${frameTime(f).toFixed(2)} s · ` +
+    (W.unearthed[f] ? 'unearthed' : `${Math.min(99, Math.floor(W.fseen[f] / W.need * 100))}% dug out`);
+}
+// Flip through the unearthed frames at the video's own speed.
+function playAlbum() {
+  const list = [...W.unearthed.keys()].filter(f => W.unearthed[f]);
+  if (albumTimer) { stopAlbumPlay(); return; }
+  let i = 0;
+  const step = () => { viewFrame(list[i]); $('albumCap').textContent += ` · playing ${i + 1}/${list.length}`; i = (i + 1) % list.length; };
+  step();
+  albumTimer = setInterval(step, Math.max(40, 1000 * (src.t1 - src.t0) / Math.max(1, src.d - 1)));
+  $('albumPlay').textContent = 'Stop';
+}
+function stopAlbumPlay() {
+  if (albumTimer) clearInterval(albumTimer);
+  albumTimer = 0;
+  $('albumPlay').textContent = 'Play Unearthed Frames';
+}
+function closeAlbum() {
+  stopAlbumPlay();
+  if (albumOpen >= 0) openAlbum(); else back();
+}
+$('albumPlay').onclick = playAlbum;
+$('albumDone').onclick = closeAlbum;
+$('albumPrev').onclick = () => { stopAlbumPlay(); viewFrame((albumOpen + src.d - 1) % src.d); };
+$('albumNext').onclick = () => { stopAlbumPlay(); viewFrame((albumOpen + 1) % src.d); };
 
 // ---------------------------------------------------------------- game
 const keys = {};
 const joy = { id: null, x: 0, y: 0, ox: 0, oy: 0 };
-let look = null, lastT = 0, senseT = 0, toastTimer = 0, actQueued = null;
+let look = null, lastT = 0, senseT = 0, actQueued = null, mouseL = false, mine = null, debugOn = false;
+const BREAK_TIME = 0.3;   // seconds of mining per block
+let revealT = 0;
+let senseText = '', action = { text: '', until: 0 };
 
 let wakeLock = null;
 function enterGame() {
-  if (!W) return;
+  if (!W || !cur) return;
   if (coarse) {
     document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => {});
     navigator.wakeLock?.request('screen').then(l => { wakeLock = l; }).catch(() => {});
   }
-  worldDirty = true;
   if (W.clipPos !== Infinity) { $('cut').value = src.d; W.clipPos = Infinity; remeshAll(); updateCutLabel(); }
   mode = 'game';
-  document.body.className = 'game';
+  backStack.length = 0;
+  P.slots = cur.slots;
   const s = W.spawn;
-  Object.assign(P, { x: s.x, y: standAbove(Math.floor(s.x), s.y, Math.floor(s.z)), z: s.z, vx: 0, vy: 0, vz: 0, step: 0 });
+  Object.assign(P, { x: s.x, y: standAbove(Math.floor(s.x), s.y, Math.floor(s.z)), z: s.z, vx: 0, vy: 0, vz: 0, step: 0, fovK: 1 });
   // Face the middle of the world.
   P.yaw = Math.atan2(-(W.X / 2 - P.x), -(W.Z / 2 - P.z)) || 0;
   P.pitch = -0.15;
-  $('touch').hidden = !coarse;
-  $('help').textContent = coarse ? 'Left side: move · Right side: drag to look, tap to dig, hold to keep digging' :
-    'WASD move · Space jump · Click dig · Right-click place · F fly · L lamp · Esc menu';
-  $('swatch').style.background = `rgb(${P.held})`;
-  if (coarse) $('pause').hidden = true; else { $('pause').hidden = false; $('resume').textContent = 'Click to explore'; }
-  updateHud(true);
+  mine = null;
+  show(null);
+  if (!coarse) {
+    try { canvas.requestPointerLock()?.catch?.(() => { if (mode === 'game' && !screen) show('pause'); }); } catch (_) { show('pause'); }
+  }
+  $('chat').textContent = '';
+  if (!cur.visited) {
+    cur.visited = true;
+    chat(`Welcome to ${cur.name}! Every layer of blocks is a frame of the video.`);
+    chat('Dig and blast to unearth the frames. The map shows what you\'ve uncovered.');
+    chat(coarse ? 'Hold still on the right side to mine, tap to place. TNT is in the last slot; Album shows your frames.' :
+      'Hold left click to mine, right click to place. TNT is in slot 9. Press E for your Frame Album.');
+  }
+  updateHotbar(); updateHud(true);
+  worldDirty = true;
   lastT = performance.now();
   requestAnimationFrame(tick);
 }
@@ -996,22 +1678,102 @@ function exitGame() {
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   wakeLock?.release().catch(() => {}); wakeLock = null;
   resetInput();
+  tnts.length = 0; puffs.length = 0;
   mode = 'preview';
-  document.body.className = 'preview';
   W.spawn = { x: P.x, y: Math.floor(P.y), z: P.z };
-  requestRender();
+  backStack.length = 0;
+  show('title');
 }
-$('enter').onclick = enterGame;
-$('toPreview').onclick = exitGame;
-$('resume').onclick = () => canvas.requestPointerLock();
+$('toTitle').onclick = exitGame;
+$('resume').onclick = () => show(null);
+$('tPause').onclick = () => show('pause');
+$('pAlbum').onclick = () => go('album');
+$('tAlbum').onclick = () => go('album');
 document.addEventListener('pointerlockchange', () => {
   if (mode !== 'game') return;
-  $('pause').hidden = document.pointerLockElement === canvas;
+  // A capture that lands while a menu is open only dismisses the Game Menu; other menus keep the mouse.
+  if (document.pointerLockElement === canvas) { if (screen === 'pause') show(null); else if (screen) document.exitPointerLock(); }
+  else if (screen === null) show('pause');
 });
+document.addEventListener('pointerlockerror', () => { if (mode === 'game' && screen === null) show('pause'); });
 
-function toast(html, ms = 3500) {
-  const t = $('toast'); t.innerHTML = html; t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+// Chat lines fade after ten seconds; the action bar above the hotbar shows short notices.
+function chat(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  $('chat').appendChild(d);
+  while ($('chat').children.length > 6) $('chat').firstChild.remove();
+  setTimeout(() => d.classList.add('old'), 10000);
+}
+function setAction(text, ms = 1500) { action = { text, until: performance.now() + ms }; $('actionbar').textContent = text; }
+let toastTimer = 0;
+function toast(title, text, rgb, challenge, iconHtml) {
+  const t = $('toast');
+  t.querySelector('.t1').textContent = title;
+  t.querySelector('.t2').textContent = text;
+  $('toastIcon').innerHTML = iconHtml || cubeSVG(rgb);
+  t.classList.toggle('challenge', !!challenge);
+  t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 5000);
+}
+
+// ---- hotbar & hand
+// An isometric block icon, shaded like a Minecraft inventory item.
+function cubeSVG(rgb) {
+  const s = k => `rgb(${rgb.map(v => Math.round(v * k))})`;
+  const T = '16,2 30,9 16,16 2,9', L = '2,9 16,16 16,30 2,23', R = '16,16 30,9 30,23 16,30';
+  return `<svg viewBox="0 0 32 32" shape-rendering="crispEdges"><polygon points="${T}" fill="${s(1)}"/><polygon points="${L}" fill="${s(0.78)}"/><polygon points="${R}" fill="${s(0.6)}"/>` +
+    `<g fill="url(#grainPat)"><polygon points="${T}"/><polygon points="${L}"/><polygon points="${R}"/></g></svg>`;
+}
+const TNT_SVG = (() => {
+  const T = '16,2 30,9 16,16 2,9', L = '2,9 16,16 16,30 2,23', R = '16,16 30,9 30,23 16,30';
+  return `<svg viewBox="0 0 32 32" shape-rendering="crispEdges"><polygon points="${T}" fill="#c9c2b8"/><polygon points="16,6 22,9 16,12 10,9" fill="#6b6460"/>` +
+    `<polygon points="${L}" fill="#d8402a"/><polygon points="${R}" fill="#a8301e"/>` +
+    `<polygon points="2,14.6 16,21.6 16,24.4 2,17.4" fill="#f2f2f2"/><polygon points="16,21.6 30,14.6 30,17.4 16,24.4" fill="#c2c2c2"/>` +
+    `<g fill="url(#grainPat)"><polygon points="${T}"/><polygon points="${L}"/><polygon points="${R}"/></g></svg>`;
+})();
+const TNT_ITEM = { tnt: true };
+// Eight slots for dug blocks; the last always holds unlimited TNT.
+function newSlots() { return [...Array(8).fill(null), TNT_ITEM]; }
+const itemSVG = it => it.tnt ? TNT_SVG : cubeSVG(it.rgb);
+const ARM_SVG = '<svg viewBox="0 0 32 32" shape-rendering="crispEdges"><polygon points="13,13 21,9 33,31 25,35" fill="#c8977a"/>' +
+  '<polygon points="13,13 25,35 19,38 7,16" fill="#a5765c"/><polygon points="7,16 13,13 21,9 15,12" fill="#d9ac8f"/>' +
+  '<g fill="url(#grainPat)"><polygon points="13,13 21,9 33,31 25,35"/><polygon points="13,13 25,35 19,38 7,16"/></g></svg>';
+function updateHotbar() {
+  const hb = $('hotbar');
+  if (hb.children.length !== 9) {
+    hb.textContent = '';
+    for (let i = 0; i < 9; i++) {
+      const s = document.createElement('div');
+      s.className = 'slot';
+      s.addEventListener('touchstart', e => { e.preventDefault(); selectSlot(i); }, { passive: false });
+      s.addEventListener('mousedown', () => selectSlot(i));
+      hb.appendChild(s);
+    }
+  }
+  P.slots.forEach((it, i) => {
+    const s = hb.children[i], key = !it ? '' : it.tnt ? 'tnt' : it.rgb + ':' + it.n;
+    s.classList.toggle('sel', i === P.sel);
+    if (s.dataset.key === key) return;
+    s.dataset.key = key;
+    s.innerHTML = it ? itemSVG(it) + `<span class="n">${it.n > 1 ? it.n : ''}</span>` : '';
+  });
+  const held = P.slots[P.sel], hk = !held ? 'arm' : held.tnt ? 'tnt' : held.rgb + '';
+  if ($('hand').dataset.key !== hk) { $('hand').dataset.key = hk; $('hand').innerHTML = held ? itemSVG(held) : ARM_SVG; }
+}
+function selectSlot(i) { P.sel = (i + 9) % 9; updateHotbar(); worldDirty = true; }
+function swing() { const h = $('hand'); h.classList.remove('swing'); void h.offsetWidth; h.classList.add('swing'); }
+// Dug blocks stack with similar colours, up to 64 per slot.
+function addItem(rgb) {
+  let s = P.slots.find(it => it && !it.tnt && it.n < 64 && Math.hypot(it.rgb[0] - rgb[0], it.rgb[1] - rgb[1], it.rgb[2] - rgb[2]) < 36);
+  if (s) s.n++;
+  else {
+    const i = P.slots.indexOf(null);
+    if (i < 0) { setAction('Hotbar full'); return; }
+    P.slots[i] = { rgb, n: 1 };
+  }
+  sfx.pop();
+  updateHotbar();
 }
 
 function collides(x, y, z) {
@@ -1045,27 +1807,143 @@ function moveAxis(axis, delta) {
 function target(cam) {
   return raycast(cam.eye, cam.fwd, 6, (x, y, z) => inside(x, y, z) && W.solid[idx(x, y, z)]);
 }
-function act(place) {
-  const cam = camera(), hit = target(cam);
-  if (!hit) return;
-  if (place) {
-    const { px: x, py: y, pz: z } = hit;
-    if (!inside(x, y, z)) return;
-    const box = x + 1 > P.x - HALF && x < P.x + HALF && z + 1 > P.z - HALF && z < P.z + HALF && y + 1 > P.y && y < P.y + TALL;
-    if (box) return;
-    W.solid[idx(x, y, z)] = 1;
-    W.col.set(P.held, idx(x, y, z) * 3);
-    editedAt(x, y, z);
-  } else {
-    const { x, y, z } = hit;
-    if (y === BEDROCK) { toast('Bedrock: you can’t dig before the first frame.', 1800); return; }
+function place() {
+  const it = P.slots[P.sel], hit = target(camera());
+  if (!hit || !it) return;
+  const { px: x, py: y, pz: z } = hit;
+  // TNT may also sit on the very top of the world, just above the last layer.
+  if (it.tnt && x >= 0 && z >= 0 && x < W.X && z < W.Z && y >= 1 && y <= W.Y + 1) {
+    if (tnts.some(t => t.x === x && Math.floor(t.y) === y && t.z === z)) return;
+    tnts.push({ x, y, z, vy: 0, fuse: FUSE });
+    sfx.fuse(); swing(); worldDirty = true;
+    return;
+  }
+  if (it.tnt || !inside(x, y, z)) return;
+  if (x + 1 > P.x - HALF && x < P.x + HALF && z + 1 > P.z - HALF && z < P.z + HALF && y + 1 > P.y && y < P.y + TALL) return;
+  W.solid[idx(x, y, z)] = 1;
+  W.col.set(it.rgb, idx(x, y, z) * 3);
+  if (--it.n === 0) P.slots[P.sel] = null;
+  editedAt(x, y, z);
+  sfx.place(); swing(); updateHotbar();
+}
+// Hold to mine: cracks grow on the block you're looking at until it breaks.
+function mineStep(dt) {
+  const hit = target(camera());
+  if (!hit) { mine = null; return; }
+  if (hit.y === BEDROCK) { setAction('Bedrock: you can’t dig before the first frame'); mine = null; return; }
+  if (!mine || mine.x !== hit.x || mine.y !== hit.y || mine.z !== hit.z) mine = { x: hit.x, y: hit.y, z: hit.z, t: 0, tick: 0 };
+  mine.t += dt; mine.tick -= dt;
+  if (mine.tick <= 0) { sfx.hit(); mine.tick = 0.13; }
+  if (mine.t < BREAK_TIME) return;
+  const i = idx(hit.x, hit.y, hit.z);
+  W.solid[i] = 0;
+  addItem([...W.col.subarray(i * 3, i * 3 + 3)]);
+  revealBox(hit.x - 1, hit.y - 1, hit.z - 1, hit.x + 1, hit.y + 1, hit.z + 1);
+  editedAt(hit.x, hit.y, hit.z);
+  sfx.dig();
+  mine = null;
+}
+// ---- unearthing
+// A block counts as uncovered once you've walked next to it, dug it or blasted it.
+// Uncover enough of a frame's blocks (W.need: 200 per layer, at most a tenth of the frame) and the
+// frame is unearthed into your album. One TNT blast unearths the band of frames it cuts through;
+// digging deeper (back in time) reaches the rest.
+function revealBox(x0, y0, z0, x1, y1, z1) {
+  x0 = Math.max(0, Math.floor(x0)); z0 = Math.max(0, Math.floor(z0)); y0 = Math.max(1, Math.floor(y0));
+  x1 = Math.min(W.X - 1, Math.floor(x1)); y1 = Math.min(W.Y - 1, Math.floor(y1)); z1 = Math.min(W.Z - 1, Math.floor(z1));
+  for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
     const i = idx(x, y, z);
-    W.solid[i] = 0;
-    P.held = [...W.col.subarray(i * 3, i * 3 + 3)];
-    $('swatch').style.background = `rgb(${P.held})`;
-    editedAt(x, y, z);
+    if (W.seen[i]) continue;
+    W.seen[i] = 1; W.revealN++;
+    const f = frameAt(y, z);
+    if (++W.fseen[f] >= W.need && !W.unearthed[f]) unearth(f);
   }
 }
+function unearth(f) {
+  W.unearthed[f] = 1;
+  const n = W.unearthed.reduce((a, b) => a + b, 0), all = n === src.d;
+  sfx.level();
+  toast(all ? 'Challenge Complete!' : 'Frame Unearthed!', all ? 'Every frame of the video' : `Frame ${f + 1} · ${frameTime(f).toFixed(2)} s`, null, all, frameIcon(f));
+  chat(`Unearthed frame ${f + 1} of ${src.d} (${frameTime(f).toFixed(2)} s). ${n} in your album.`);
+  senseT = 0;
+}
+function frameIcon(f) {
+  const c = document.createElement('canvas');
+  drawFrameThumb(c, f, null);
+  return `<img src="${c.toDataURL()}" alt="" style="width:48px;height:36px;object-fit:cover;image-rendering:pixelated;border:2px solid #000">`;
+}
+// Frame f with only the uncovered pixels showing; the rest is blank map parchment.
+function drawRevealed(cv, f, dot) {
+  const { w, h } = src, k = W.k, fr = src.frames[f], full = W.unearthed[f];
+  if (cv.width !== w) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(w, h), o = img.data;
+  for (let r = 0; r < h; r++) for (let x = 0; x < w; x++) {
+    let seen = full;
+    for (let j = 0; j < k && !seen; j++) seen = W.seen[W.up ? idx(x, 1 + f * k + j, r) : idx(x, h - r, f * k + j)];
+    const p = (r * w + x) * 4;
+    if (seen) { o[p] = fr[p]; o[p + 1] = fr[p + 1]; o[p + 2] = fr[p + 2]; }
+    else { const n = ((x * 7 + r * 13) % 5) * 4; o[p] = 214 - n; o[p + 1] = 196 - n; o[p + 2] = 150 - n; }
+    o[p + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  if (dot) {
+    ctx.fillStyle = '#000'; ctx.fillRect(dot[0] - 2, dot[1] - 2, 5, 5);
+    ctx.fillStyle = '#fff'; ctx.fillRect(dot[0] - 1, dot[1] - 1, 3, 3);
+  }
+}
+
+// ---- TNT
+// Placed TNT lights itself, falls if unsupported, flashes, then blows out a ragged sphere.
+const FUSE = 2, BLAST = 5;
+const tnts = [], puffs = [];
+let shake = 0;
+function updateTnt(dt) {
+  for (const t of [...tnts]) {
+    t.fuse -= dt;
+    t.vy -= 25 * dt;
+    let ny = t.y + t.vy * dt;
+    const below = Math.floor(ny);
+    if (t.vy < 0 && (below < 1 || (inside(t.x, below, t.z) && W.solid[idx(t.x, below, t.z)]))) { ny = Math.max(1, below + 1); t.vy = 0; }
+    t.y = ny;
+    if (t.fuse <= 0) explode(t);
+  }
+  for (const p of [...puffs]) {
+    p.age += dt;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+    p.vx *= 1 - dt * 2; p.vz *= 1 - dt * 2; p.vy = p.vy * (1 - dt * 2) + dt * 1.5;
+    if (p.age > p.life) puffs.splice(puffs.indexOf(p), 1);
+  }
+  shake = Math.max(0, shake - dt);
+}
+function explode(t) {
+  tnts.splice(tnts.indexOf(t), 1);
+  const cx = t.x + 0.5, cy = t.y + 0.5, cz = t.z + 0.5, R = BLAST;
+  const x0 = Math.floor(cx - R), x1 = Math.floor(cx + R), y0 = Math.max(1, Math.floor(cy - R)), y1 = Math.floor(cy + R), z0 = Math.floor(cz - R), z1 = Math.floor(cz + R);
+  for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+    if (!inside(x, y, z)) continue;
+    const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy, z + 0.5 - cz);
+    if (d <= R * (0.7 + 0.35 * Math.random())) W.solid[idx(x, y, z)] = 0;
+  }
+  revealBox(x0 - 2, y0 - 2, z0 - 2, x1 + 2, y1 + 2, z1 + 2);   // the crater walls are uncovered too
+  for (let z = Math.max(0, z0); z <= Math.min(W.Z - 1, z1); z++) for (let x = Math.max(0, x0); x <= Math.min(W.X - 1, x1); x++) updateTop(x, z);
+  remeshBox(x0 - 1, Math.max(0, y0 - 9), z0 - 1, x1 + 1, y1 + 1, z1 + 1);
+  worldDirty = true;
+  // Nearby TNT goes off soon after; the player gets pushed away.
+  for (const o of tnts) if (Math.hypot(o.x - t.x, o.y - t.y, o.z - t.z) <= R + 1) o.fuse = Math.min(o.fuse, 0.1 + Math.random() * 0.4);
+  const dx = P.x - cx, dy = P.y + 1 - cy, dz = P.z - cz, d = Math.hypot(dx, dy, dz) || 1;
+  if (d < R * 2.5) {
+    const k = (1 - d / (R * 2.5)) * 16;
+    P.vx += dx / d * k; P.vz += dz / d * k; P.vy = Math.max(P.vy, 4 + k * 0.4); P.onGround = false;
+  }
+  shake = Math.max(shake, Math.min(0.5, 2 / d + 0.1));
+  for (let i = 0; i < 26; i++) {
+    const a = Math.random() * 6.283, b = Math.random() * 2 - 1, s = 2 + Math.random() * 5, r = Math.sqrt(1 - b * b);
+    puffs.push({ x: cx, y: cy, z: cz, vx: Math.cos(a) * r * s, vy: b * s + 1, vz: Math.sin(a) * r * s, age: 0, life: 0.6 + Math.random() * 0.6, size: 0.5 + Math.random() * 0.8 });
+  }
+  sfx.boom();
+  if (coarse) navigator.vibrate?.(60);
+}
+
 function editedAt(x, y, z) {
   const t0 = W.top[x + W.X * z];
   let y0 = y - 1, y1 = y + 1;
@@ -1077,21 +1955,28 @@ function editedAt(x, y, z) {
   worldDirty = true;
   if (coarse) navigator.vibrate?.(8);
 }
+function bobOffset() { return opts.bob && mode === 'game' ? Math.abs(Math.sin(P.walk * Math.PI / 1.6)) * 0.07 * P.bob : 0; }
 
-let worldDirty = true, lastSig = '', slowFor = 0, fastFor = 0, renderedLast = false;
+let worldDirty = true, lastSig = '', slowFor = 0, fastFor = 0, renderedLast = false, fps = 0, fpsN = 0, fpsT = 0;
 function tick(now) {
   if (mode !== 'game') return;
   const rawDt = (now - lastT) / 1000, dt = Math.min(0.05, rawDt); lastT = now;
-  const playing = coarse || document.pointerLockElement === canvas;
-  if (playing) update(dt);
-  // Touch: holding still on the look side keeps digging (or placing).
-  if (look && !look.moved && now - look.t > 380 && now >= (look.next || 0)) { actQueued = P.placeMode; look.held = true; look.next = now + 230; }
+  const playing = screen === null && (coarse || document.pointerLockElement === canvas);
+  // Touch: holding still on the look side starts mining; keep mining while the finger stays down.
+  if (look && !look.moved && now - look.t > 300) look.held = true;
+  if (playing) update(dt); else if (mine) mine = null;
+  $('hand').classList.toggle('mining', !!mine);
+  const hb = Math.sin(P.walk * Math.PI / 1.6) * P.bob * (opts.bob ? 1 : 0);
+  $('hand').style.transform = `translate(${hb * 10}px, ${Math.abs(hb) * 12 + (P.pitch < -1 ? 30 : 0)}px)`;
   // Only redraw when the view or the world changed; saves battery while standing still.
-  const sig = [P.x, P.y + P.step, P.z, P.yaw, P.pitch].map(v => v.toFixed(3)) + P.lamp + P.placeMode + canvas.clientWidth + 'x' + canvas.clientHeight;
+  const sig = [P.x, P.y + P.step + bobOffset(), P.z, P.yaw, P.pitch, P.fovK].map(v => v.toFixed(3)) + P.lamp + (mine ? mine.t.toFixed(2) : '') +
+    canvas.clientWidth + 'x' + canvas.clientHeight;
   if (sig !== lastSig || worldDirty) {
     if (renderedLast) adaptResolution(rawDt);
-    render(); lastSig = sig; worldDirty = false; renderedLast = true;
+    render(); lastSig = sig; worldDirty = false; renderedLast = true; fpsN++;
   } else renderedLast = false;
+  if (now - fpsT > 1000) { fps = fpsN; fpsN = 0; fpsT = now; }
+  if (tnts.length || puffs.length || shake > 0) worldDirty = true;
   updateHud(false);
   requestAnimationFrame(tick);
 }
@@ -1102,10 +1987,13 @@ function adaptResolution(dt) {
   if (fastFor > 6 && renderScale < 1) { renderScale = Math.min(1, renderScale * 1.15); fastFor = 0; }
 }
 function update(dt) {
-  if (actQueued !== null) { act(actQueued); actQueued = null; }
+  if (actQueued === 'place') place();
+  actQueued = null;
+  if (mouseL || (look && look.held)) mineStep(dt); else mine = null;
   let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + joy.x, mz = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) - joy.y;
   const ml = Math.hypot(mx, mz); if (ml > 1) { mx /= ml; mz /= ml; }
-  const speed = P.fly ? 10 : (keys.ShiftLeft && !P.fly ? 7 : 4.6);
+  const sprint = keys.ShiftLeft && !P.fly && mz > 0;
+  const speed = P.fly ? 10 : (sprint ? 7 : 4.6);
   const sy = Math.sin(P.yaw), cy = Math.cos(P.yaw);
   const wx = (cy * mx - sy * mz) * speed, wz = (-sy * mx - cy * mz) * speed;
   const k = 1 - Math.exp(-dt * (P.onGround || P.fly ? 14 : 3));
@@ -1119,16 +2007,38 @@ function update(dt) {
   if (P.fly && collides(P.x, P.y - 0.02, P.z)) P.onGround = true;
   P.step *= Math.exp(-dt * 14);
   if (P.y < -5) Object.assign(P, { y: standAbove(Math.floor(P.x), 1, Math.floor(P.z)), vy: 0 });
+  // Sprinting widens the view a little; walking bobs the view and plays footsteps.
+  P.fovK += ((sprint && Math.hypot(P.vx, P.vz) > 5 ? 1.12 : 1) - P.fovK) * (1 - Math.exp(-dt * 10));
+  const hs = Math.hypot(P.vx, P.vz), walking = P.onGround && !P.fly && hs > 0.5;
+  P.bob += ((walking ? Math.min(1, hs / 4.6) : 0) - P.bob) * (1 - Math.exp(-dt * 8));
+  if (walking) {
+    const before = Math.floor(P.walk / 1.6);
+    P.walk += hs * dt;
+    if (Math.floor(P.walk / 1.6) !== before) sfx.step();
+  }
 
+  updateTnt(dt);
+  // Walking around uncovers the blocks next to you.
+  revealT -= dt;
+  if (revealT <= 0) {
+    revealT = 0.2;
+    const x = Math.floor(P.x), y = Math.floor(P.y + 0.1), z = Math.floor(P.z);
+    revealBox(x - 4, y - 1, z - 4, x + 4, y + 2, z + 4);
+  }
   // Discover caves by standing in them.
-  for (const yy of [Math.floor(P.y + 0.1), Math.floor(P.y + EYE)]) {
+  if (settings.caves) for (const yy of [Math.floor(P.y + 0.1), Math.floor(P.y + EYE)]) {
     const x = Math.floor(P.x), z = Math.floor(P.z);
     if (!inside(x, yy, z)) continue;
     const id = W.cave[idx(x, yy, z)];
     if (id >= 0 && !W.caves[id].found) {
       const c = W.caves[id]; c.found = true;
-      const n = W.caves.filter(c => c.found).length;
-      toast(`<b>Cave found!</b> ${n} of ${W.caves.length}<br><span class="note">${c.size} blocks of air from ${frameTime(c.fmin).toFixed(2)} s to ${frameTime(c.fmax).toFixed(2)} s of the video</span>`, 5000);
+      const n = W.caves.filter(c => c.found).length, all = n === W.caves.length;
+      sfx.level();
+      if (all) toast('Challenge Complete!', 'Every cave found', caveHue(c.id), true);
+      else toast('Advancement Made!', `Cave ${n} of ${W.caves.length} found`, caveHue(c.id));
+      revealBox(c.cx - c.rad, c.cy - c.rad, c.cz - c.rad, c.cx + c.rad, c.cy + c.rad, c.cz + c.rad);
+      chat(`Cave ${n}: ${c.size} blocks of air from ${frameTime(c.fmin).toFixed(2)} s to ${frameTime(c.fmax).toFixed(2)} s of the video`);
+      senseT = 0;
     }
   }
 }
@@ -1136,17 +2046,23 @@ function update(dt) {
 function updateHud(force) {
   const x = Math.floor(P.x), y = Math.floor(P.y + 0.1), z = Math.floor(P.z);
   const f = frameAt(Math.min(W.Y - 1, Math.max(1, y)), Math.min(W.Z - 1, Math.max(0, z)));
+  const under = W.up && y < W.top[Math.max(0, Math.min(W.X - 1, x)) + W.X * Math.max(0, Math.min(W.Z - 1, z))];
   const dot = W.up ? [x, z] : [x, src.h - y];
-  if (force || f !== thumbImg.f || dot + '' !== thumbImg.dot) {
-    thumbImg.f = f; thumbImg.dot = dot + '';
-    drawFrameThumb($('hudThumb'), f, dot);
-    $('hudTime').textContent = `Frame ${f + 1}/${src.d} · ${frameTime(f).toFixed(2)} s` + (W.up && y < W.top[Math.max(0, Math.min(W.X - 1, x)) + W.X * Math.max(0, Math.min(W.Z - 1, z))] ? ' · underground' : '');
-  }
   const now = performance.now();
+  // The map shows the frame you're in, filled in where you've uncovered it.
+  if (force || f !== thumbImg.f || dot + '' !== thumbImg.dot || (W.revealN !== thumbImg.n && now - thumbImg.t > 300)) {
+    thumbImg.f = f; thumbImg.dot = dot + ''; thumbImg.n = W.revealN; thumbImg.t = now;
+    drawRevealed($('hudThumb'), f, dot);
+    const pct = Math.min(99, Math.floor(W.fseen[f] / W.need * 100));
+    $('hudTime').textContent = `Frame ${f + 1}/${src.d} · ${frameTime(f).toFixed(2)} s · ` + (W.unearthed[f] ? 'unearthed' : `${pct}% dug out`);
+    // XP bar: progress towards unearthing this frame. Level: frames unearthed.
+    $('xpBar').firstElementChild.style.width = Math.min(100, W.fseen[f] / W.need * 100) + '%';
+    $('xpLevel').textContent = W.unearthed.reduce((a, b) => a + b, 0) || '';
+  }
+  if (action.text && now > action.until) { action.text = ''; $('actionbar').textContent = senseText; }
   if (!force && now - senseT < 250) return;
   senseT = now;
   const found = W.caves.filter(c => c.found).length;
-  $('hudCaves').textContent = W.caves.length ? `Caves found: ${found} / ${W.caves.length}` : 'No hidden caves in this world';
   // Cave sense: distance and rough direction to the nearest cell of any undiscovered cave.
   let best = Infinity, bx = 0, by = 0, bz = 0;
   const ex = P.x, ey = P.y + EYE, ez = P.z, X = W.X, Z = W.Z, XZ = X * Z;
@@ -1160,44 +2076,62 @@ function updateHud(force) {
       if (d2 < best * best) { best = Math.sqrt(d2); bx = cx - ex; by = cy - ey; bz = cz - ez; }
     }
   }
-  const bar = $('senseBar').firstElementChild;
-  if (best === Infinity) { $('senseText').textContent = W.caves.length ? 'All caves found!' : ''; bar.style.width = '0'; return; }
-  const rel = Math.atan2(-bx, -bz) - P.yaw, a = Math.atan2(Math.sin(rel), Math.cos(rel));
-  const horiz = Math.hypot(bx, bz);
-  let dir = Math.abs(by) > horiz * 1.2 ? (by < 0 ? 'below' : 'above')
-    : Math.abs(a) < 0.6 ? 'ahead' : Math.abs(a) > 2.5 ? 'behind' : a > 0 ? 'to the left' : 'to the right';
-  if (Math.abs(by) > 2 && Math.abs(by) <= horiz * 1.2) dir += by < 0 ? ', lower' : ', higher';
-  const warmth = best < 4 ? 'Burning hot' : best < 10 ? 'Hot' : best < 20 ? 'Warm' : best < 40 ? 'Cool' : 'Cold';
-  $('senseText').textContent = `Cave sense: ${warmth} · ${Math.round(best)} blocks ${dir}`;
-  bar.style.width = Math.max(4, 100 - best * 2) + '%';
+  if (!settings.caves) senseText = '';
+  else if (best === Infinity) senseText = W.caves.length ? 'All caves found!' : '';
+  else {
+    const rel = Math.atan2(-bx, -bz) - P.yaw, a = Math.atan2(Math.sin(rel), Math.cos(rel));
+    const horiz = Math.hypot(bx, bz);
+    let dir = Math.abs(by) > horiz * 1.2 ? (by < 0 ? 'below' : 'above')
+      : Math.abs(a) < 0.6 ? 'ahead' : Math.abs(a) > 2.5 ? 'behind' : a > 0 ? 'to the left' : 'to the right';
+    if (Math.abs(by) > 2 && Math.abs(by) <= horiz * 1.2) dir += by < 0 ? ', lower' : ', higher';
+    const warmth = best < 4 ? 'Burning hot' : best < 10 ? 'Hot' : best < 20 ? 'Warm' : best < 40 ? 'Cool' : 'Cold';
+    senseText = `Cave sense: ${warmth}, ${Math.round(best)} blocks ${dir}`;
+  }
+  if (!action.text) $('actionbar').textContent = senseText;
+  if (debugOn) {
+    const yaw = Math.atan2(Math.sin(P.yaw), Math.cos(P.yaw)), q = ((Math.round(yaw / (Math.PI / 2)) % 4) + 4) % 4;
+    const facing = ['north (towards -Z)', 'west (towards -X)', 'south (towards +Z)', 'east (towards +X)'][q];
+    $('debug').innerHTML = [
+      `Video Craft 1.1 (${cur.name})`, `${fps} fps`, '',
+      `XYZ: ${P.x.toFixed(3)} / ${P.y.toFixed(5)} / ${P.z.toFixed(3)}`, `Block: ${x} ${y} ${z}`, `Facing: ${facing}`, '',
+      `Frame: ${f + 1}/${src.d} (${frameTime(f).toFixed(2)} s)${under ? ', underground' : ''}`,
+      `Frames unearthed: ${W.unearthed.reduce((a, b) => a + b, 0)}/${src.d}`, `Caves: ${settings.caves ? `${found}/${W.caves.length}` : 'off'}`, `Headlamp: ${P.lamp ? 'on' : 'off'}${P.fly ? ', flying' : ''}`,
+    ].map(s => `<div>${s.replace(/[<&]/g, c => c === '<' ? '&lt;' : '&amp;') || '&nbsp;'}</div>`).join('');
+  }
 }
 
 // desktop input
 addEventListener('keydown', e => {
-  if (mode !== 'game') return;
+  if (mode !== 'game' || screen !== null) return;
   keys[e.code] = true;
-  if (e.code === 'KeyF') { P.fly = !P.fly; toast(P.fly ? 'Flying (Space up, Shift down)' : 'Walking', 1200); }
-  if (e.code === 'KeyL') { P.lamp = !P.lamp; toast(P.lamp ? 'Headlamp on' : 'Headlamp off', 1000); }
+  if (e.code === 'KeyF') { P.fly = !P.fly; setAction(P.fly ? 'Flying: Space up, Shift down' : 'Walking'); }
+  if (e.code === 'KeyL') { P.lamp = !P.lamp; setAction(P.lamp ? 'Headlamp on' : 'Headlamp off'); worldDirty = true; }
+  if (e.code === 'KeyE') { resetInput(); go('album'); document.exitPointerLock?.(); }
+  if (e.code === 'F3') { e.preventDefault(); debugOn = !debugOn; syncBody(); senseT = 0; }
+  if (/^Digit[1-9]$/.test(e.code)) selectSlot(+e.code.slice(5) - 1);
   if (e.code === 'Space') e.preventDefault();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
-addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouseL = false; });
 canvas.addEventListener('mousedown', e => {
-  if (mode !== 'game' || coarse) return;
+  if (mode !== 'game' || coarse || screen !== null) return;
   if (document.pointerLockElement !== canvas) { canvas.requestPointerLock(); return; }
-  actQueued = e.button === 2 || e.shiftKey && e.button === 0 ? true : e.button === 0 ? false : null;
+  if (e.button === 2 || (e.button === 0 && e.shiftKey)) actQueued = 'place';
+  else if (e.button === 0) mouseL = true;
 });
+addEventListener('mouseup', e => { if (e.button === 0) mouseL = false; });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('mousemove', e => {
   if (mode !== 'game' || document.pointerLockElement !== canvas) return;
-  P.yaw -= e.movementX * 0.0024;
-  P.pitch = Math.max(-1.55, Math.min(1.55, P.pitch - e.movementY * 0.0024));
+  const s = 0.0024 * opts.sens / 100;
+  P.yaw -= e.movementX * s;
+  P.pitch = Math.max(-1.55, Math.min(1.55, P.pitch - e.movementY * s));
 });
 
-// touch input: left third is a joystick, the rest drags to look and taps to act
+// touch input: left third is a joystick, the rest drags to look, holds to mine, taps to place
 const touchHeld = { jump: false, down: false };
 canvas.addEventListener('touchstart', e => {
-  if (mode !== 'game') return;
+  if (mode !== 'game' || screen !== null) return;
   e.preventDefault();
   for (const t of e.changedTouches) {
     if (t.clientX < innerWidth * 0.38 && joy.id === null) {
@@ -1210,6 +2144,7 @@ canvas.addEventListener('touchstart', e => {
 canvas.addEventListener('touchmove', e => {
   if (mode !== 'game') return;
   e.preventDefault();
+  const s = 0.006 * opts.sens / 100;
   for (const t of e.changedTouches) {
     if (t.identifier === joy.id) {
       let dx = (t.clientX - joy.ox) / 45, dy = (t.clientY - joy.oy) / 45;
@@ -1218,8 +2153,8 @@ canvas.addEventListener('touchmove', e => {
       $('joy').firstElementChild.style.transform = `translate(${dx * 33}px,${dy * 33}px)`;
     } else if (look && t.identifier === look.id) {
       if (Math.hypot(t.clientX - look.sx, t.clientY - look.sy) > 10) look.moved = true;
-      P.yaw -= (t.clientX - look.x) * 0.006;
-      P.pitch = Math.max(-1.55, Math.min(1.55, P.pitch - (t.clientY - look.y) * 0.006));
+      P.yaw -= (t.clientX - look.x) * s;
+      P.pitch = Math.max(-1.55, Math.min(1.55, P.pitch - (t.clientY - look.y) * s));
       look.x = t.clientX; look.y = t.clientY;
     }
   }
@@ -1227,6 +2162,7 @@ canvas.addEventListener('touchmove', e => {
 function resetInput() {
   for (const k in keys) keys[k] = false;
   touchHeld.jump = touchHeld.down = false;
+  mouseL = false; mine = null;
   joy.id = null; joy.x = joy.y = 0; $('joy').style.display = 'none';
   look = null;
 }
@@ -1235,7 +2171,7 @@ const touchEnd = e => {
   for (const t of e.changedTouches) {
     if (t.identifier === joy.id) { joy.id = null; joy.x = joy.y = 0; $('joy').style.display = 'none'; }
     else if (look && t.identifier === look.id) {
-      if (!look.moved && !look.held && performance.now() - look.t < 380) actQueued = P.placeMode;
+      if (!look.moved && !look.held && performance.now() - look.t < 300) actQueued = 'place';
       look = null;
     }
   }
@@ -1248,24 +2184,22 @@ const hold = (id, k) => {
   $(id).addEventListener('touchcancel', () => { touchHeld[k] = false; });
 };
 hold('tJump', 'jump'); hold('tDown', 'down');
-$('tAct').onclick = () => { P.placeMode = !P.placeMode; $('tAct').textContent = P.placeMode ? 'Place' : 'Dig'; $('tAct').classList.toggle('on', P.placeMode); };
-$('tFly').onclick = () => { P.fly = !P.fly; $('tFly').classList.toggle('on', P.fly); $('tDown').style.display = P.fly ? '' : 'none'; $('tJump').textContent = P.fly ? 'Up' : 'Jump'; };
-$('tLamp').onclick = () => { P.lamp = !P.lamp; $('tLamp').classList.toggle('on', P.lamp); };
-$('tLamp').classList.add('on');
-$('tMenu').onclick = exitGame;
+$('tFly').onclick = () => { P.fly = !P.fly; $('tFly').classList.toggle('on', P.fly); $('tDown').style.display = P.fly ? 'inline-flex' : 'none'; $('tJump').textContent = P.fly ? 'Up' : 'Jump'; };
+$('tLamp').onclick = () => { P.lamp = !P.lamp; $('tLamp').classList.toggle('on', P.lamp); worldDirty = true; };
 
 // ---------------------------------------------------------------- start
 addEventListener('resize', () => { if (mode === 'preview') requestRender(); });
 canvas.addEventListener('webglcontextlost', e => e.preventDefault());
 canvas.addEventListener('webglcontextrestored', () => {
-  chunks = []; xrayVAO = null; xrayCount = 0;
+  chunks = []; xrayVAO = null; xrayCount = 0; cloudVAO = null; cloudCount = 0;
   initGL();
-  if (W) { remeshAll(); buildXray(); }
+  if (W) { remeshAll(); buildXray(); buildClouds(); }
   worldDirty = true;
   requestRender();
 });
-syncSegs();
-if (initGL()) { $('hint').textContent = 'Building demo world…'; loadDemo(); }
+syncCycles();
+show('title');
+if (initGL()) loadDemo().then(() => { addWorld('Demo World', 'Demo'); if (screen === 'worlds') renderWorldList(); });
 </script>
 </body>
 </html>
